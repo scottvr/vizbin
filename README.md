@@ -187,5 +187,3 @@ foo.anim.gray.64-1024.gif
 pip install -e '.[dev]'
 pytest
 ```
-
-The design rationale and roadmap live in [DESIGN_NOTES.md](DESIGN_NOTES.md).
