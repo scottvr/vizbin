@@ -146,10 +146,10 @@ def _build_entropy(data: bytes, opts: dict) -> tuple[bytearray, int]:
     idx = bytearray(n)
     inv8 = 1.0 / 8.0
     for i in range(n):
-        b = data[i]
-        c = counts[b]
+        sym = data[i]
+        c = counts[sym]
         sum_clogc += clog[c + 1] - clog[c]
-        counts[b] = c + 1
+        counts[sym] = c + 1
         total += 1
         if total > window:
             ob = data[i - window]

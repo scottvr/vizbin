@@ -1,5 +1,3 @@
-import os
-
 from vizbin import bmp
 from vizbin.cli import main
 

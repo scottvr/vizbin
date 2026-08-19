@@ -261,8 +261,8 @@ def cmd_suggest(args) -> int:
     data = load_region(args.input, args.offset, args.length)
     suggestions = layout.suggest(data, top=args.top)
     if args.verbose:
-        print(f"Width  Family     Score   Why")
-        print(f"-----  ---------  ------  " + "-" * 40)
+        print("Width  Family     Score   Why")
+        print("-----  ---------  ------  " + "-" * 40)
         for s in suggestions:
             print(f"{s.width:<5}  {s.family:<9}  {s.score:0.2f}    {s.why}")
     else:

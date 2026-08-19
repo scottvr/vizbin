@@ -111,7 +111,7 @@ def _lzw_encode(indices: bytes, min_code_size: int) -> bytes:
     emit(clear_code)
 
     if indices:
-        w = (indices[0],)
+        w: tuple[int, ...] = (indices[0],)
         for i in range(1, len(indices)):
             k = indices[i]
             wk = w + (k,)

@@ -81,7 +81,7 @@ def square_bmp_dimensions(n: int) -> tuple[int, int, int]:
     """
     ideal = math.sqrt(max(n, 1) / 3)
     base = max(4, int(ideal) // 4 * 4)
-    best = None
+    best: tuple[int, int, int, int] | None = None
     for w in (base, base + 4):
         row_bytes = w * 3
         h = max(1, math.ceil(n / row_bytes))
@@ -89,6 +89,7 @@ def square_bmp_dimensions(n: int) -> tuple[int, int, int]:
         cand = (abs(w - h), padding, w, h)
         if best is None or cand < best:
             best = cand
+    assert best is not None  # loop always runs, but pin it for type-checkers
     _, padding, w, h = best
     return w, h, padding
 
