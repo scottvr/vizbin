@@ -4,35 +4,83 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vizbin"
-version = "0.1.0"
 description = "Format-agnostic binary visualization: turn arbitrary byte streams into images to expose hidden structure."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "scottvr" }]
+authors = [{ name = "scottvr", email = "scottvr@gmail.com" }]
 keywords = ["binary", "visualization", "reverse-engineering", "forensics", "bmp", "entropy"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Topic :: Security",
     "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Utilities",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 # Intentionally zero runtime dependencies. Everything is pure stdlib.
 # BMP is written by hand; the animated GIF encoder is pure Python.
 dependencies = []
+# Version lives in src/vizbin/__init__.py (single source of truth), read
+# statically by setuptools -- see [tool.setuptools.dynamic] below.
+dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = [
+    "pytest>=7",
+    "ruff>=0.15",
+    "mypy>=1.19",
+    "build",
+    "twine",
+    "pre-commit>=3",
+]
 
 [project.scripts]
 vizbin = "vizbin.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/scottvr/vizbin"
+Repository = "https://github.com/scottvr/vizbin.git"
+Issues = "https://github.com/scottvr/vizbin/issues"
+Changelog = "https://github.com/scottvr/vizbin/blob/main/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = { attr = "vizbin.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.ruff]
+# Match the project's hand-formatting; lint only, no autoformatter.
+line-length = 100
+target-version = "py39"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Pyflakes (F), pycodestyle errors (E4/E7/E9), and flake8-bugbear (B).
+select = ["E4", "E7", "E9", "F", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"tests/*" = ["E402"]
+
+[tool.mypy]
+python_version = "3.9"
+files = ["src"]
+warn_unused_configs = true
+warn_redundant_casts = true
+# Lenient to start: no disallow_untyped_defs yet. Tighten over time.
