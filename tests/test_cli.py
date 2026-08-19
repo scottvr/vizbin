@@ -29,7 +29,7 @@ def test_render(tmp_path):
 def test_render_all_modes(tmp_path):
     p = _make_input(tmp_path)
     for m in ["gray", "raw-rgb", "byteclass", "entropy", "delta", "xor",
-              "bitplane", "nibble"]:
+              "bitplane", "nibble", "text"]:
         out = tmp_path / f"{m}.bmp"
         rc = main(["render", str(p), "-w", "64", "-m", m, "-o", str(out)])
         assert rc == 0, m
@@ -83,6 +83,37 @@ def test_inspect_offset(tmp_path, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "y=2" in out  # 128 // 64 == 2
+
+
+def test_suggest_hints_text_mode(tmp_path, capsys):
+    p = tmp_path / "code.txt"
+    p.write_text("def f():\n    return 1\n" * 40)  # ~100% printable
+    rc = main(["suggest", str(p)])
+    assert rc == 0
+    assert "-m text" in capsys.readouterr().out
+
+
+def test_suggest_no_hint_on_binary(tmp_path, capsys):
+    p = tmp_path / "bin.dat"
+    p.write_bytes(bytes(range(256)) * 8)  # only ~37% printable
+    rc = main(["suggest", str(p)])
+    assert rc == 0
+    assert "-m text" not in capsys.readouterr().out
+
+
+def test_inspect_text_cell_roundtrip(tmp_path, capsys):
+    # text -w 64 --scale 3 -> 24px cells. offset 260 -> col 4, row 4.
+    rc = main(["inspect", "-w", "64", "-m", "text", "--scale", "3",
+               "--offset", "260"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "col=4, row=4" in out
+    assert "x=[96,120)" in out  # 4 * 24 .. 5 * 24
+    # any pixel inside that cell maps back to offset 260
+    rc = main(["inspect", "-w", "64", "-m", "text", "--scale", "3",
+               "--x", "110", "--y", "110"])
+    assert rc == 0
+    assert "offset 260" in capsys.readouterr().out
 
 
 def test_region_windowing(tmp_path):

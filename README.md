@@ -120,6 +120,14 @@ Width  Family     Score   Why
 512    storage    0.78    common page/block size; strong adjacent-row coherence
 ```
 
+When the input is substantially printable, `suggest` adds an advisory line
+pointing at the `text` mode (it never switches mode for you — you pick the
+hypothesis):
+
+```
+hint: ~100% of bytes are printable/whitespace -- this looks like text; try  -m text
+```
+
 ### inspect (offset <-> pixel mapping)
 
 ```sh
@@ -130,6 +138,15 @@ vizbin inspect -w 256 -m raw-rgb --phase 1 --offset 100
 
 If you rendered a windowed region, pass `--base <offset>` so the math accounts
 for where the render started.
+
+For `text` mode each byte is an `8*scale`-pixel cell rather than a single pixel,
+so pass the same `--scale` you rendered with. `inspect` then reports the cell's
+pixel box (offset -> cell) and resolves any pixel inside a cell back to its byte:
+
+```sh
+vizbin inspect -w 64 -m text --scale 3 --offset 260   # -> cell col=4, row=4 (pixels x=[96,120) y=[96,120))
+vizbin inspect -w 64 -m text --scale 3 --x 110 --y 110 # -> 1 byte at offset 260
+```
 
 ### bmp / unbmp (reversible payload mode)
 
@@ -163,6 +180,29 @@ vizbin render IMG_0001.BMP -m raw-rgb --width <w> --offset 54   # skip the 54-by
 | `xor`       | 1 | periodicity / repeated records (`--k` lag) |
 | `bitplane`  | 1 | a single bit across all bytes (`--plane 0..7`) |
 | `nibble`    | 1 | high nibble -> red, low nibble -> green |
+| `text`      | 1 cell | printable ASCII as glyphs, non-text bytes as class tiles |
+
+### text mode
+
+`text` (aliases `ascii`, `txt`) is a *grid* renderer rather than a
+one-byte-one-pixel projection: each byte becomes an 8x8 cell. Printable ASCII is
+drawn as its glyph so text regions are literally readable, while everything else
+(NUL, controls, tab/newline, high-bit, `0xFF`) is painted as a solid tile in its
+`byteclass` colour — so the binary structure wrapped around the text still pops.
+Think of it as a visual `strings` that keeps the surrounding scaffolding visible.
+
+```bash
+vizbin render archive.tar -m text -w 64            # 64 bytes per row
+vizbin render archive.tar -m text -w 64 --scale 3  # 3x magnified glyphs
+vizbin render firmware.bin -m text --mono-text     # non-printables left blank
+```
+
+Good on tar members, PEM/cert blobs, embedded scripts, and the
+`.rodata`/`.rdata` string tables of executables (not `.text` — that is machine
+code and renders as a wall of colour, which is itself a useful tell). `--width`
+is bytes-per-row just like the 1-byte modes, so `contact --modes gray,text -w 64`
+lines the two up byte-for-byte. The glyphs come from a vendored public-domain
+8x8 font (`font8x8.py`), so vizbin stays pure-stdlib.
 
 ## Width families
 
@@ -187,3 +227,28 @@ foo.anim.gray.64-1024.gif
 pip install -e '.[dev]'
 pytest
 ```
+
+## ACKNOWLEDGEMENTS
+the 8x8 bitmap font used for text rendering is from https://github.com/dhepper/font8x8
+which itself borrowed from some old IBM assembly code:
+```
+Credits
+=======
+These header files are directly derived from an assembler file fetched from:
+http://dimensionalrift.homelinux.net/combuster/mos3/?p=viewsource&file=/modules/gfx/font8_8.asm
+
+Original header:
+
+; Summary: font8_8.asm
+; 8x8 monochrome bitmap fonts for rendering
+;
+; Author:
+;     Marcel Sondaar
+;     International Business Machines (public domain VGA fonts)
+;
+; License:
+;     Public Domain
+;
+```
+
+It's pixels all the way down.

@@ -39,9 +39,14 @@ def _add_mode_opts(p: argparse.ArgumentParser) -> None:
                    help="xor lag k for the xor mode")
     p.add_argument("--plane", type=int, default=7,
                    help="bit index 0..7 for the bitplane mode")
+    p.add_argument("--scale", type=int, default=1,
+                   help="text mode: glyph magnification (cell = 8*scale px)")
+    p.add_argument("--mono-text", dest="mono_text", action="store_true",
+                   help="text mode: draw non-printable bytes blank instead of "
+                        "byte-class colour tiles")
 
 
-_MODES = sorted(projections.PROJECTIONS)
+_MODES = projections.mode_names()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -136,6 +141,8 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--x", type=int, default=None)
     i.add_argument("--y", type=int, default=None)
     i.add_argument("--phase", type=int, default=0)
+    i.add_argument("--scale", type=int, default=1,
+                   help="text mode: glyph scale used at render time (cell = 8*scale px)")
     i.add_argument("--base", type=_auto_int, default=0,
                    help="base offset the render started at (render --offset)")
     i.set_defaults(func=commands.cmd_inspect)

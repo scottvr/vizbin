@@ -74,16 +74,24 @@ def parse_widths(spec: str, *, n_pixels: int) -> list[int]:
 
 @dataclass
 class OffsetMap:
-    """Bidirectional mapping between byte offsets and pixel coordinates.
+    """Bidirectional mapping between byte offsets and image coordinates.
 
     ``bpp`` is *source bytes per pixel* (1 for gray/byteclass/entropy/...,
     3 for raw-rgb). ``phase`` and ``base`` account for a leading byte skip
     (raw-rgb grouping phase and/or an inspection ``--offset`` start).
+
+    ``cell`` is the pixel size of each grid cell's edge: 1 for the ordinary
+    one-byte-one-pixel modes (so ``width`` is pixels per row and image pixel ==
+    grid cell), or ``8 * scale`` for the ``text`` glyph mode, where ``width`` is
+    columns and each byte occupies a ``cell`` x ``cell`` block. ``(x, y)`` in the
+    returned dicts is always the *grid* coordinate (col, row); when ``cell > 1``
+    the covering pixel box is reported alongside it.
     """
     width: int
     bpp: int = 1
     phase: int = 0
     base: int = 0
+    cell: int = 1
 
     def offset_to_pixel(self, offset: int) -> dict:
         rel = offset - self.base - self.phase
@@ -91,20 +99,32 @@ class OffsetMap:
             return {"error": "offset is before the rendered region"}
         pixel = rel // self.bpp
         channel = rel % self.bpp
-        return {
+        col = pixel % self.width
+        row = pixel // self.width
+        out = {
             "offset": offset,
             "pixel": pixel,
-            "x": pixel % self.width,
-            "y": pixel // self.width,
+            "x": col,
+            "y": row,
             "channel": channel if self.bpp > 1 else None,
         }
+        if self.cell > 1:
+            out["px_x"] = col * self.cell
+            out["px_y"] = row * self.cell
+            out["cell"] = self.cell
+        return out
 
     def pixel_to_offset(self, x: int, y: int) -> dict:
-        pixel = y * self.width + x
+        # For text mode any pixel inside a cell resolves to that cell's byte.
+        col = x // self.cell
+        row = y // self.cell
+        pixel = row * self.width + col
         start = self.base + self.phase + pixel * self.bpp
         return {
             "x": x,
             "y": y,
+            "col": col,
+            "row": row,
             "pixel": pixel,
             "offset": start,
             "offset_end": start + self.bpp - 1,

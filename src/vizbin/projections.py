@@ -59,6 +59,31 @@ def _byte_class(b: int) -> int:
     return 5
 
 
+# Text/whitespace that the ``text`` mode renders meaningfully: printable ASCII
+# draws a glyph; tab/LF/CR are structural whitespace tiles.
+_TEXT_WS = {0x09, 0x0A, 0x0D}
+_PRINTABLE_TABLE = bytes(1 if 0x20 <= i <= 0x7E else 0 for i in range(256))
+_TEXTISH_TABLE = bytes(
+    1 if (0x20 <= i <= 0x7E or i in _TEXT_WS) else 0 for i in range(256))
+
+
+def printable_ratio(data: bytes) -> float:
+    """Fraction of bytes that are printable ASCII (0x20..0x7E)."""
+    if not data:
+        return 0.0
+    return sum(data.translate(_PRINTABLE_TABLE)) / len(data)
+
+
+def text_ratio(data: bytes) -> float:
+    """Fraction that is printable ASCII or text whitespace (tab/LF/CR).
+
+    A cheap "how textish is this?" score used to advise the ``text`` mode.
+    """
+    if not data:
+        return 0.0
+    return sum(data.translate(_TEXTISH_TABLE)) / len(data)
+
+
 _CLASS_TABLE = bytes(_byte_class(i) for i in range(256))
 _PAL_R = bytes(_CLASS_COLORS[_byte_class(i)][0] for i in range(256))
 _PAL_G = bytes(_CLASS_COLORS[_byte_class(i)][1] for i in range(256))
@@ -191,31 +216,55 @@ PROJECTIONS: dict[str, Projection] = {
     "nibble":    Projection("nibble", 1, _build_nibble, "high nibble -> red, low nibble -> green"),
 }
 
+# Glyph-grid modes: not one-byte-one-pixel, so they live outside PROJECTIONS
+# and are dispatched separately by ``render`` (see :mod:`vizbin.textmode`).
+GLYPH_MODES = {"text"}
+
 # Convenient aliases.
-_ALIASES = {"rawrgb": "raw-rgb", "rgb": "raw-rgb", "grey": "gray"}
+_ALIASES = {"rawrgb": "raw-rgb", "rgb": "raw-rgb", "grey": "gray",
+            "ascii": "text", "txt": "text"}
+
+
+def mode_names() -> list[str]:
+    """Every mode name a user may pass, pixel modes then glyph modes."""
+    return sorted(PROJECTIONS) + sorted(GLYPH_MODES)
 
 
 def resolve(name: str) -> str:
     name = name.lower()
     name = _ALIASES.get(name, name)
-    if name not in PROJECTIONS:
-        raise KeyError(f"unknown mode {name!r}; known: {', '.join(PROJECTIONS)}")
+    if name not in PROJECTIONS and name not in GLYPH_MODES:
+        raise KeyError(f"unknown mode {name!r}; known: {', '.join(mode_names())}")
     return name
 
 
 def bytes_per_pixel(name: str) -> int:
-    return PROJECTIONS[resolve(name)].bpp
+    n = resolve(name)
+    if n in GLYPH_MODES:
+        return 1  # one source byte per glyph cell
+    return PROJECTIONS[n].bpp
 
 
 def pixel_count(name: str, data_len: int, *, phase: int = 0) -> int:
-    if bytes_per_pixel(name) == 3:
+    n = resolve(name)
+    if n in GLYPH_MODES:
+        return data_len  # one cell per byte
+    if PROJECTIONS[n].bpp == 3:
         return max(0, (data_len - (phase % 3))) // 3
     return data_len
 
 
 def render(name: str, data: bytes, width: int, **opts) -> Raster:
-    """Project ``data`` and lay it out at ``width`` pixels wide."""
-    proj = PROJECTIONS[resolve(name)]
+    """Project ``data`` and lay it out at ``width`` pixels wide.
+
+    For glyph modes (``text``), ``width`` is the number of cells per row and the
+    work is delegated to :func:`vizbin.textmode.render_text`.
+    """
+    rn = resolve(name)
+    if rn in GLYPH_MODES:
+        from vizbin import textmode  # lazy: textmode imports back from here
+        return textmode.render_text(data, width, **opts)
+    proj = PROJECTIONS[rn]
     rgb, p = proj.build(data, opts)
     if p == 0 or width < 1:
         return Raster(1, 1)

@@ -29,6 +29,8 @@ def _mode_opts(args) -> dict:
         "window": getattr(args, "window", 256) or 256,
         "k": getattr(args, "k", 1) or 1,
         "plane": getattr(args, "plane", 7) if getattr(args, "plane", None) is not None else 7,
+        "scale": getattr(args, "scale", 1) or 1,
+        "colorize": not getattr(args, "mono_text", False),
     }
 
 
@@ -237,6 +239,24 @@ def _animate_mp4(args, frames: list[Raster], delay_cs: int) -> int:
 # suggest
 # ---------------------------------------------------------------------------
 
+def _text_advice(data: bytes) -> str | None:
+    """Advise the ``text`` mode when the data looks substantially printable.
+
+    Advisory only -- vizbin never switches mode on its own; the user picks the
+    hypothesis. Returns a one-line hint, or ``None`` when text mode is unlikely
+    to help.
+    """
+    tr = projections.text_ratio(data)
+    pct = round(tr * 100)
+    if tr >= 0.90:
+        return (f"~{pct}% of bytes are printable/whitespace -- this looks like "
+                f"text; try  -m text")
+    if tr >= 0.65:
+        return (f"~{pct}% of bytes are printable/whitespace -- mixed text/binary; "
+                f"-m text may surface the strings in place")
+    return None
+
+
 def cmd_suggest(args) -> int:
     data = load_region(args.input, args.offset, args.length)
     suggestions = layout.suggest(data, top=args.top)
@@ -249,6 +269,9 @@ def cmd_suggest(args) -> int:
         print(f"Suggested widths for {args.input}:")
         for s in suggestions:
             print(f"  {s.width:<7} {s.family}")
+    advice = _text_advice(data)
+    if advice:
+        print(f"\nhint: {advice}")
     return 0
 
 
@@ -260,24 +283,38 @@ def cmd_inspect(args) -> int:
     mode = projections.resolve(args.mode)
     bpp = projections.bytes_per_pixel(mode)
     phase = (args.phase or 0) if mode == "raw-rgb" else 0
-    omap = layout.OffsetMap(width=args.width, bpp=bpp, phase=phase, base=args.base)
+    # text mode is a grid of 8*scale-pixel cells; other modes are 1 px per cell.
+    cell = (8 * max(1, getattr(args, "scale", 1) or 1)
+            if mode in projections.GLYPH_MODES else 1)
+    omap = layout.OffsetMap(width=args.width, bpp=bpp, phase=phase,
+                            base=args.base, cell=cell)
 
     if args.offset is not None:
         r = omap.offset_to_pixel(args.offset)
         if "error" in r:
             print(r["error"], file=sys.stderr)
             return 1
-        chan = "" if r["channel"] is None else f", channel {r['channel']}"
         print(f"offset 0x{args.offset:x} ({args.offset}) [{mode}, w={args.width}]")
-        print(f"  -> pixel {r['pixel']} at x={r['x']}, y={r['y']}{chan}")
+        if "px_x" in r:
+            c = r["cell"]
+            print(f"  -> cell col={r['x']}, row={r['y']} "
+                  f"(pixels x=[{r['px_x']},{r['px_x'] + c}) "
+                  f"y=[{r['px_y']},{r['px_y'] + c}))")
+        else:
+            chan = "" if r["channel"] is None else f", channel {r['channel']}"
+            print(f"  -> pixel {r['pixel']} at x={r['x']}, y={r['y']}{chan}")
         return 0
 
     if args.x is not None and args.y is not None:
         r = omap.pixel_to_offset(args.x, args.y)
         lo, hi = r["byte_range"]
         print(f"pixel x={args.x}, y={args.y} [{mode}, w={args.width}]")
-        print(f"  -> byte offset {r['offset']} (0x{r['offset']:x})"
-              f", range [{lo}, {hi}) = {hi - lo} byte(s)")
+        if cell > 1:
+            print(f"  -> cell col={r['col']}, row={r['row']} = 1 byte at "
+                  f"offset {r['offset']} (0x{r['offset']:x})")
+        else:
+            print(f"  -> byte offset {r['offset']} (0x{r['offset']:x})"
+                  f", range [{lo}, {hi}) = {hi - lo} byte(s)")
         return 0
 
     print("give either --offset, or both --x and --y", file=sys.stderr)

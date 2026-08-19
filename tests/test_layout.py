@@ -44,6 +44,24 @@ def test_offset_before_region():
     assert "error" in om.offset_to_pixel(50)
 
 
+def test_offset_map_text_cell_geometry():
+    # text mode: width is columns, each byte is an 8*scale px cell.
+    om = layout.OffsetMap(width=64, bpp=1, cell=24)  # scale 3
+    r = om.offset_to_pixel(260)
+    assert (r["x"], r["y"]) == (4, 4)            # 260 // 64 == 4, rem 4
+    assert (r["px_x"], r["px_y"]) == (96, 96)    # col/row * 24
+    assert r["cell"] == 24
+
+
+def test_offset_map_text_any_pixel_in_cell_maps_to_byte():
+    om = layout.OffsetMap(width=64, bpp=1, cell=24)
+    # every pixel inside the 24x24 cell at col 4, row 4 -> the same offset 260
+    for x, y in [(96, 96), (110, 110), (119, 119)]:
+        back = om.pixel_to_offset(x, y)
+        assert (back["col"], back["row"]) == (4, 4)
+        assert back["offset"] == 260
+
+
 def test_suggest_finds_record_width():
     # 188-byte records with a constant sync byte -> strong row coherence at 188
     data = bytearray()
