@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Union
 
 from vizbin.canvas import ENTROPY_CMAP, Raster, cmap_channels
 
@@ -90,7 +90,13 @@ _PAL_G = bytes(_CLASS_COLORS[_byte_class(i)][1] for i in range(256))
 _PAL_B = bytes(_CLASS_COLORS[_byte_class(i)][2] for i in range(256))
 
 
-def _interleave_gray(channel: bytes) -> bytearray:
+# Channels come from either bytes.translate (-> bytes) or bytearray.translate
+# (-> bytearray), so accept both. Extended-slice assignment handles either.
+# Union[...] (not `bytes | bytearray`) so the runtime alias is valid on 3.9.
+_Bytes = Union[bytes, bytearray]
+
+
+def _interleave_gray(channel: _Bytes) -> bytearray:
     n = len(channel)
     rgb = bytearray(n * 3)
     rgb[0::3] = channel
@@ -99,7 +105,7 @@ def _interleave_gray(channel: bytes) -> bytearray:
     return rgb
 
 
-def _interleave(r: bytes, g: bytes, b: bytes) -> bytearray:
+def _interleave(r: _Bytes, g: _Bytes, b: _Bytes) -> bytearray:
     rgb = bytearray(len(r) * 3)
     rgb[0::3] = r
     rgb[1::3] = g
