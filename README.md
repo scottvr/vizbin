@@ -148,6 +148,27 @@ vizbin inspect -w 64 -m text --scale 3 --offset 260   # -> cell col=4, row=4 (pi
 vizbin inspect -w 64 -m text --scale 3 --x 110 --y 110 # -> 1 byte at offset 260
 ```
 
+#### Mode-specific readouts
+
+Pass the **source file** and `inspect` also reports what the coordinate *means*
+in the chosen mode — the character in `text`, the RGB source bytes in `raw-rgb`,
+the XOR operands and result in `xor`, the selected bit in `bitplane`, the local
+entropy window in `entropy`, the delta in `delta`, and so on. Without a file it
+stays pure geometry.
+
+```sh
+vizbin inspect archive.tar -w 64 -m text    --offset 260   # -> byte 0x61 (97) = 'a'
+vizbin inspect archive.tar -w 64 -m entropy --offset 260   # -> entropy 1.42 bits over 256-byte window [5-260]
+vizbin inspect archive.tar -w 64 -m xor     --offset 260 --k 4  # -> byte 0x61 (97) XOR @256 0x00 (0) = 0x61 (97)
+vizbin inspect archive.tar -w 64 -m raw-rgb --offset 260   # -> pixel 86 -> R@258=0x73 G@259=0x74 B@260=0x61
+```
+
+The readout is computed to match exactly what that projection rendered
+(predecessors, windows, and phase are taken **region-relative to `--base`**), and
+it reads only a bounded window around the offset, so it stays a cheap point query.
+Pass the mode's parameter when it has one: `--k` (xor), `--window` (entropy),
+`--plane` (bitplane), `--phase` (raw-rgb).
+
 ### bmp / unbmp (reversible payload mode)
 
 ```sh
