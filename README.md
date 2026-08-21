@@ -166,6 +166,14 @@ vizbin inspect archive.tar -w 64 -m raw-rgb --offset 260   # -> pixel 86 -> R@25
 `raw-rgb` readouts add an inline ASCII gloss (`-> "sta"`) when the pixel's three
 bytes are all printable — colour channels are often hex for a string.
 
+When you inspect a non-`text` mode and the bytes around the offset look like text,
+`inspect` whispers what they spell (and `render` nudges you toward `-m text` when
+the whole region is printable). It's advisory only, and `--no-hints` silences it:
+
+```
+  psst: bytes [84-116] look like text: " __future__ import annotations..i"
+```
+
 The readout is computed to match exactly what that projection rendered
 (predecessors, windows, and phase are taken **region-relative to `--base`**), and
 it reads only a bounded window around the offset, so it stays a cheap point query.

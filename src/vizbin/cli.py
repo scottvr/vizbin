@@ -69,6 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("-w", "--width", type=int, default=None,
                    help="image width in pixels (default: square-ish)")
     r.add_argument("-m", "--mode", default="gray", help=modes_help)
+    r.add_argument("--no-hints", dest="no_hints", action="store_true",
+                   help="suppress the advisory 'looks like text' hint")
     _add_mode_opts(r)
     _add_region(r)
     r.set_defaults(func=commands.cmd_render)
@@ -156,6 +158,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="text mode: glyph scale used at render time (cell = 8*scale px)")
     i.add_argument("--base", type=_auto_int, default=0,
                    help="base offset the render started at (render --offset)")
+    i.add_argument("--no-hints", dest="no_hints", action="store_true",
+                   help="suppress the advisory 'looks like text' hint")
     i.set_defaults(func=commands.cmd_inspect)
 
     # bmp

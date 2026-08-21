@@ -19,6 +19,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   projection is an independent view of the same offset).
 - `raw-rgb` readouts add an inline ASCII gloss (`-> "sta"`) when the pixel's three
   source bytes are all printable.
+- Cross-mode **ASCII advisory** (default on, `--no-hints` to silence): when you
+  view a non-`text` mode but the bytes look like text, `inspect` whispers what the
+  surrounding bytes spell and `render` nudges toward `-m text`. Advisory only —
+  vizbin never switches mode for you.
 
 ## [0.2.0] - 2026-08-19
 
