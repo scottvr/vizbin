@@ -6,21 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-21
+
 ### Added
 - `render --pipe m1,m2,...` **pipelines**: chain modes' transforms in order and
   paint with the last mode's colorizer (e.g. `xor,entropy` = "entropy of the xor
   stream"). Order-significant; a single-mode pipe equals the mode, and
   `delta,gray` == `delta`. Only 1:1 modes compose (`raw-rgb`/`text` are rejected).
   New API: `projections.compose_pipeline` / `render_pipeline`.
-
-### Internal
-- Refactored the projection engine into composable **transforms** (bytes→bytes)
-  and **colorizers** (bytes→pixels): each 1:1 mode is now a `(transform,
-  colorizer)` pair (e.g. `xor` = xor-transform + gray-colorizer, `byteclass` =
-  class-index + palette). Output is byte-identical (golden-hash guarded). No
-  user-visible change; this is the groundwork for chaining/overlaying modes.
-
-### Added
 - `inspect` now reports **mode-specific readouts** when given the source file: the
   character in `text`, RGB source bytes in `raw-rgb`, XOR operands + result in
   `xor`, the selected bit in `bitplane`, the local entropy window in `entropy`,
@@ -42,6 +35,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of at least `-n`/`--min-run` glyphs (default 6, like `strings -n`), so it catches
   a magic string / filename embedded in binary or padding, not just wholly-text
   regions.
+
+### Internal
+- Refactored the projection engine into composable **transforms** (bytes→bytes)
+  and **colorizers** (bytes→pixels): each 1:1 mode is now a `(transform,
+  colorizer)` pair (e.g. `xor` = xor-transform + gray-colorizer, `byteclass` =
+  class-index + palette). Output is byte-identical (golden-hash guarded). This is
+  the groundwork the `--pipe` pipelines build on.
 
 ## [0.2.0] - 2026-08-19
 
@@ -77,6 +77,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `raw-rgb`, `byteclass`, `entropy`, `delta`, `xor`, `bitplane`, `nibble`.
   Pure-stdlib BMP writer and animated-GIF encoder.
 
-[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/scottvr/vizbin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/scottvr/vizbin/releases/tag/v0.2.0
 [0.1.0]: https://github.com/scottvr/vizbin/releases/tag/v0.1.0
