@@ -169,6 +169,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="text mode: glyph scale used at render time (cell = 8*scale px)")
     i.add_argument("--base", type=_auto_int, default=0,
                    help="base offset the render started at (render --offset)")
+    i.add_argument("-n", "--min-run", dest="min_run", type=int, default=6,
+                   help="min printable run to trigger the 'looks like text' hint "
+                        "(like strings -n; default 6)")
     i.set_defaults(func=commands.cmd_inspect)
 
     # bmp

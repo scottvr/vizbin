@@ -174,6 +174,18 @@ the whole region is printable). It's advisory only, and `--no-hints` silences it
   psst: bytes [84-116] look like text: " __future__ import annotations..i"
 ```
 
+The hint fires on either a mostly-printable window **or** a printable run of at
+least `-n`/`--min-run` glyphs (default 6, like `strings -n`) — so it also catches
+a magic string or filename embedded in binary/padding, rendering the `.` structure
+around it:
+
+```
+vizbin inspect archive.tar -w 64 -m raw-rgb --offset 260
+#   -> pixel 86 -> R@258=0x73 G@259=0x74 B@260=0x61 -> "sta"
+#   psst: bytes [244-276] look like text: ".............ustar.00bundle-tron9"
+vizbin inspect archive.tar -w 64 -m raw-rgb --offset 260 -n 20   # raise the bar; now silent
+```
+
 The readout is computed to match exactly what that projection rendered
 (predecessors, windows, and phase are taken **region-relative to `--base`**), and
 it reads only a bounded window around the offset, so it stays a cheap point query.

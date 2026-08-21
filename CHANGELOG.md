@@ -31,7 +31,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   surrounding bytes spell and `render` nudges toward `-m text`. Advisory only —
   vizbin never switches mode for you. `--no-hints` is a **global flag**: it parses
   anywhere on the command line, appears once in the top-level `--help`, and also
-  silences the `suggest` hint.
+  silences the `suggest` hint. The `inspect` hint also fires on a printable **run**
+  of at least `-n`/`--min-run` glyphs (default 6, like `strings -n`), so it catches
+  a magic string / filename embedded in binary or padding, not just wholly-text
+  regions.
 
 ## [0.2.0] - 2026-08-19
 
