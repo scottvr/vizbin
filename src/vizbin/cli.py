@@ -138,6 +138,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "value/character readout")
     i.add_argument("-w", "--width", type=int, required=True)
     i.add_argument("-m", "--mode", default="gray", help=modes_help)
+    i.add_argument("--modes", default=None,
+                   help="comma list of modes to read out together for one "
+                        "coordinate (e.g. raw-rgb,text); pair with a source file")
     i.add_argument("--offset", type=_auto_int, default=None,
                    help="byte offset to locate (accepts 0x..)")
     i.add_argument("--x", type=int, default=None)

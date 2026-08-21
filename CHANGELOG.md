@@ -15,6 +15,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   readout matches exactly what the projection rendered; it reads only a bounded
   window around the offset. New `inspect` options `--k`, `--window`, `--plane`.
   Without a source file, `inspect` stays pure offset↔pixel geometry.
+- `inspect --modes a,b,c` stacks a readout per mode for one coordinate (each
+  projection is an independent view of the same offset).
+- `raw-rgb` readouts add an inline ASCII gloss (`-> "sta"`) when the pixel's three
+  source bytes are all printable.
 
 ## [0.2.0] - 2026-08-19
 

@@ -85,10 +85,17 @@ def test_entropy_offset_zero_is_one_byte_window(tmp_path):
 
 
 def test_raw_rgb(tmp_path):
+    # these bytes are all printable, so the inline ASCII gloss fires
     assert ro(tmp_path, "102030405060708090", "raw-rgb", 4, phase=0) == \
-        "pixel 1 -> R@3=0x40 G@4=0x50 B@5=0x60"
+        'pixel 1 -> R@3=0x40 G@4=0x50 B@5=0x60 -> "@P`"'
     assert ro(tmp_path, "0011223344556677", "raw-rgb", 4, phase=1) == \
-        "pixel 1 -> R@4=0x44 G@5=0x55 B@6=0x66"
+        'pixel 1 -> R@4=0x44 G@5=0x55 B@6=0x66 -> "DUf"'
+
+
+def test_raw_rgb_no_gloss_when_not_all_printable(tmp_path):
+    # 0x01 is a control byte -> no ASCII gloss
+    assert ro(tmp_path, "0141420001", "raw-rgb", 0, phase=0) == \
+        "pixel 0 -> R@0=0x01 G@1=0x41 B@2=0x42"
 
 
 # --- edge cases the critic surfaced ----------------------------------------
@@ -128,3 +135,33 @@ def test_cli_without_input_is_geometry_only(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "y=2" in out
     assert "byte 0x" not in out  # no readout without a source file
+
+
+# --- Slice 1: raw-rgb ASCII gloss + multi-mode stacking --------------------
+
+def test_ascii_gloss_helper():
+    from vizbin.commands import _ascii_gloss
+    assert _ascii_gloss([0x73, 0x74, 0x61]) == ' -> "sta"'
+    assert _ascii_gloss([0x73, 0x00, 0x61]) == ""   # a non-printable -> no gloss
+    assert _ascii_gloss([]) == ""
+
+
+def test_cli_multi_mode_stacks_readouts(tmp_path, capsys):
+    path = _file(tmp_path, "737461")  # s t a -> raw-rgb pixel 0 spells "sta"
+    rc = main(["inspect", path, "-w", "64", "--modes", "raw-rgb,text,gray",
+               "--offset", "0"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "[raw-rgb" in out and "[text" in out and "[gray" in out
+    assert '-> "sta"' in out          # rgb gloss reveals the string
+    assert "= 's'" in out             # text reads the char at offset 0
+    assert "-> gray 115" in out       # gray value of 's'
+
+
+def test_cli_single_mode_via_modes_flag_uses_detailed_path(tmp_path, capsys):
+    path = _file(tmp_path, "48")
+    rc = main(["inspect", path, "-w", "64", "--modes", "text", "--offset", "0"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "= 'H'" in out
+    assert "cell" in out or "pixel" in out  # detailed single-mode geometry kept

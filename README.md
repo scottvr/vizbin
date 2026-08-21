@@ -160,14 +160,28 @@ stays pure geometry.
 vizbin inspect archive.tar -w 64 -m text    --offset 260   # -> byte 0x61 (97) = 'a'
 vizbin inspect archive.tar -w 64 -m entropy --offset 260   # -> entropy 1.42 bits over 256-byte window [5-260]
 vizbin inspect archive.tar -w 64 -m xor     --offset 260 --k 4  # -> byte 0x61 (97) XOR @256 0x00 (0) = 0x61 (97)
-vizbin inspect archive.tar -w 64 -m raw-rgb --offset 260   # -> pixel 86 -> R@258=0x73 G@259=0x74 B@260=0x61
+vizbin inspect archive.tar -w 64 -m raw-rgb --offset 260   # -> pixel 86 -> R@258=0x73 G@259=0x74 B@260=0x61 -> "sta"
 ```
+
+`raw-rgb` readouts add an inline ASCII gloss (`-> "sta"`) when the pixel's three
+bytes are all printable — colour channels are often hex for a string.
 
 The readout is computed to match exactly what that projection rendered
 (predecessors, windows, and phase are taken **region-relative to `--base`**), and
 it reads only a bounded window around the offset, so it stays a cheap point query.
 Pass the mode's parameter when it has one: `--k` (xor), `--window` (entropy),
 `--plane` (bitplane), `--phase` (raw-rgb).
+
+Stack several modes for one coordinate with `--modes` — each projection is an
+independent view of the same offset, so the readouts are additive:
+
+```sh
+vizbin inspect archive.tar -w 64 --modes raw-rgb,text,gray --offset 260
+#   offset 0x104 (260) [w=64]
+#     [raw-rgb] pixel 86 -> R@258=0x73 G@259=0x74 B@260=0x61 -> "sta"
+#     [text   ] byte 0x61 (97) = 'a'
+#     [gray   ] byte 0x61 (97) -> gray 97
+```
 
 ### bmp / unbmp (reversible payload mode)
 
