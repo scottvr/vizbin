@@ -193,7 +193,11 @@ def build_parser() -> argparse.ArgumentParser:
     n.add_argument("input")
     n.add_argument("--stride", type=_auto_int, default=None,
                    help="force record length in bytes (accepts 0x..); "
-                        "default: auto via row-coherence")
+                        "default: auto via byte-autocorrelation")
+    n.add_argument("--format", choices=["table", "json", "kaitai", "struct"],
+                   default="table", help="output format (default: table)")
+    n.add_argument("--json", action="store_const", const="json", dest="format",
+                   help="shorthand for --format json")
     _add_region(n)
     n.set_defaults(func=commands.cmd_infer)
 

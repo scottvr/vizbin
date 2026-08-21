@@ -692,8 +692,17 @@ def cmd_infer(args) -> int:
         print(f"{args.input}: stride {stride} ({why}), but too few records "
               f"to profile", file=sys.stderr)
         return 1
-    print(f"{args.input}:")
-    print(infer.format_report(data, stride, why, fields, n_rec))
+    fmt = getattr(args, "format", "table")
+    if fmt == "json":
+        print(infer.to_json(stride, why, fields, n_rec, source=args.input))
+    elif fmt == "kaitai":
+        meta_id = os.path.splitext(os.path.basename(args.input))[0] or "record"
+        print(infer.to_kaitai(stride, fields, meta_id))
+    elif fmt == "struct":
+        print(infer.to_struct(fields))
+    else:
+        print(f"{args.input}:")
+        print(infer.format_report(data, stride, why, fields, n_rec))
     return 0
 
 

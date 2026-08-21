@@ -279,6 +279,38 @@ data), and small multi-byte counters are shown at their *observed* width (a
 counter that never exceeds 65535 reads as `u16`). Adjacent constant fields can
 merge — the evidence (hex/ASCII) is shown so you can split them by eye.
 
+**Export the guess into a real parser** with `--format` (or `--json`) — this is
+the point: go from a picture of an unknown format to something you can compile.
+
+```sh
+vizbin infer logs.bin --json              # structured, for pipelines/tooling
+vizbin infer logs.bin --format kaitai     # a Kaitai Struct .ksy stub
+vizbin infer logs.bin --format struct     # a Python struct format + field names
+```
+```yaml
+# --format kaitai
+meta:
+  id: logs
+seq:
+  - id: magic
+    contents: [0x4c, 0x4f, 0x47, 0x31]
+  - id: count
+    type: u4le
+  - id: text
+    type: str
+    size: 8
+    encoding: ASCII
+```
+```python
+# --format struct
+format = "<4sI2x8s4s"
+fields = ['magic', 'count', 'text', 'data']
+```
+
+The `struct` format always accounts for every byte (`struct.calcsize(format) ==
+stride`), so it round-trips; `kaitai` gives per-field endianness and fixed-magic
+`contents`.
+
 ### bmp / unbmp (reversible payload mode)
 
 ```sh

@@ -13,8 +13,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with evidence + confidence: constant **magic**/reserved, monotonic **counters**
   (with endianness), printable **strings**, and high-entropy **blobs**. Reports
   honestly when there's no strong record structure. Closes the loop from "I can
-  *see* records" to "here's a machine-readable guess at their layout." (Slice 1;
-  JSON/Kaitai export is planned.)
+  *see* records" to "here's a machine-readable guess at their layout."
+- **`infer` export formats** — `--json` (structured, for pipelines), `--format
+  kaitai` (a Kaitai Struct `.ksy` stub with per-field endianness and fixed-magic
+  `contents`), and `--format struct` (a Python `struct` format + field names that
+  accounts for every byte, so `struct.calcsize(format) == stride`). Turns the
+  draft layout into an actual parser you can compile.
 
 ## [0.4.0] - 2026-08-21
 
