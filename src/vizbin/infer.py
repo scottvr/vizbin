@@ -168,14 +168,20 @@ def infer_fields(data: bytes, stride: int) -> tuple[list[Field], int]:
         chosen = None
         if run_w <= 8:
             w = 2 if run_w <= 2 else 4 if run_w <= 4 else 8
-            for lo, endian in ((j, "little"), (k - w, "big")):
-                if lo < 0 or lo + w > stride or any(claimed[c] for c in range(lo, lo + w)):
-                    continue
-                if not all(is_zero[c] for c in range(lo, lo + w) if not (j <= c < k)):
-                    continue
-                res = _try_counter(cols, lo, w, n_rec, endian)
-                if res:
-                    chosen = (lo, w, res)
+            # round 1 pads with zeros only (safest); round 2 allows any constant
+            # high byte, so a counter with a fixed non-zero high byte (e.g. a
+            # big-endian value like 0x01xxxxxx) is still recovered.
+            for pad_ok in (is_zero, is_const):
+                for lo, endian in ((j, "little"), (k - w, "big")):
+                    if lo < 0 or lo + w > stride or any(claimed[c] for c in range(lo, lo + w)):
+                        continue
+                    if not all(pad_ok[c] for c in range(lo, lo + w) if not (j <= c < k)):
+                        continue
+                    res = _try_counter(cols, lo, w, n_rec, endian)
+                    if res:
+                        chosen = (lo, w, res)
+                        break
+                if chosen:
                     break
         if chosen:
             lo, w, (endian, score, first, last) = chosen
@@ -199,8 +205,12 @@ def infer_fields(data: bytes, stride: int) -> tuple[list[Field], int]:
             continue
         p = profs[j]
         if p.label == "const":
+            # split at the zero <-> nonzero boundary, so a run of reserved zeros
+            # doesn't merge with an adjacent constant like a string's fixed prefix.
             k = j
-            while k < stride and not claimed[k] and profs[k].label == "const":
+            zero0 = is_zero[j]
+            while (k < stride and not claimed[k] and profs[k].label == "const"
+                   and is_zero[k] == zero0):
                 k += 1
             vals = bytes(profs[c].constant or 0 for c in range(j, k))
             allzero = all(b == 0 for b in vals)
@@ -297,6 +307,12 @@ def select_stride(data: bytes, override: int | None = None):
               and v >= acmap.get(d - 1, 0) and v >= acmap.get(d + 1, 0)]  # local peak
     stride = min(strong) if strong else min(d for v, d in ac if v >= 0.85 * peak)
     frac = _aligned_const_frac(data, stride)
+    if frac == 0.0:
+        # periodic, but NO byte position is fixed across records -- almost always
+        # regular-length text, not a fixed-record binary (fixed records share at
+        # least one magic/sync/flag/reserved byte, so frac > 0).
+        return None, (f"periodic at {stride} but no constant columns "
+                      f"-- variable-length text, not fixed records? (try --stride)")
     note = " -- nearly all-constant, may be padding not records" if frac >= 0.95 else ""
     return stride, (f"period @ {stride} (autocorr {acmap[stride]:.2f}, "
                     f"{frac * 100:.0f}% constant columns){note}")

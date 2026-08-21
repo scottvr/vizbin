@@ -100,6 +100,39 @@ def test_too_few_records_no_counter():
     assert infer._try_counter([bytes([1, 2, 3])] * 4, 0, 4, 3, "little") is None
 
 
+# --- Slice 3 tuning: const-split, 0%-const rejection, BE-with-const-high ----
+
+def test_reserved_splits_from_constant_prefix():
+    # reserved zeros must NOT merge with an adjacent constant (a string's prefix)
+    data = bytearray()
+    for i in range(200):
+        r = random.Random(i)
+        data += bytes(4) + b"AB" + bytes(r.randrange(256) for _ in range(4))  # 10
+    fields, _ = infer.infer_fields(bytes(data), 10)
+    fo = {f.offset: f for f in fields}
+    assert fo[0].kind == "reserved" and fo[0].size == 4      # zeros stay separate
+    assert fo[4].kind in ("magic", "const") and "AB" in fo[4].evidence
+
+
+def test_periodic_but_no_constant_columns_rejected():
+    # period 16, but every column drifts -> high autocorrelation, 0 constant cols
+    data = bytes((i // 10 + j) % 256 for i in range(600) for j in range(16))
+    stride, why = infer.select_stride(data)
+    assert stride is None
+    assert "no constant columns" in why
+
+
+def test_be_counter_with_constant_high_byte():
+    # a big-endian u32 with a fixed 0x01 top byte must still read as a counter
+    data = bytearray()
+    for i in range(300):
+        data += b"HI" + struct.pack(">I", 0x01000000 + i * 500)
+    fields, _ = infer.infer_fields(bytes(data), 6)
+    ctr = next(f for f in fields if f.kind == "counter")
+    assert ctr.detail["endian"] == "big"
+    assert ctr.size == 4 and ctr.offset == 2
+
+
 # --- machine-readable export -----------------------------------------------
 
 def _infer(data):
@@ -136,7 +169,7 @@ def test_struct_export_covers_stride_and_unpacks():
     fmt = out.splitlines()[0].split('"')[1]
     assert struct.calcsize(fmt) == stride          # accounts for every byte
     vals = struct.Struct(fmt).unpack(data[:stride])
-    assert vals[0] == b"REC\x00"                    # first field is the magic
+    assert vals[0] == b"REC"                        # magic (the \0 splits off as reserved)
 
 
 def test_cli_export_formats(tmp_path, capsys):
