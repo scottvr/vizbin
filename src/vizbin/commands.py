@@ -299,6 +299,18 @@ def _shannon_bits(window: list[int]) -> float:
     return math.log2(n) - sum(c * math.log2(c) for c in counts.values()) / n
 
 
+def _ascii_gloss(vals: list[int]) -> str:
+    """A ' -> "sta"' suffix when every byte is printable ASCII, else ''.
+
+    Turns a run of hex bytes into the string they'd spell -- the 'psst, those
+    RGB values are hex for "sta"' reveal, shown inline where we already have the
+    bytes in hand.
+    """
+    if vals and all(0x20 <= v <= 0x7E for v in vals):
+        return f' -> "{"".join(chr(v) for v in vals)}"'
+    return ""
+
+
 def _mode_readout(mode: str, path: str, offset: int, base: int, opts: dict) -> str | None:
     """Describe byte ``offset`` in ``mode``'s own terms, matching the renderer.
 
@@ -386,11 +398,60 @@ def _mode_readout(mode: str, path: str, offset: int, base: int, opts: dict) -> s
         if r is None or g is None or bl is None:
             return f"in the trailing bytes (incomplete pixel {p})"
         return (f"pixel {p} -> R@{ro}=0x{r:02x} G@{ro + 1}=0x{g:02x} "
-                f"B@{ro + 2}=0x{bl:02x}")
+                f"B@{ro + 2}=0x{bl:02x}" + _ascii_gloss([r, g, bl]))
     return None
 
 
+def _inspect_multi(modes: list[str], args) -> int:
+    """Stack per-mode readouts for one coordinate under a shared header.
+
+    Each mode is an independent *view* of the same offset, so a mode list is
+    additive: ``inspect --modes raw-rgb,text`` shows both the RGB bytes and the
+    character. With ``--x/--y`` each mode resolves its own byte (geometry differs
+    per mode); with ``--offset`` they share the absolute offset.
+    """
+    if args.offset is not None:
+        print(f"offset 0x{args.offset:x} ({args.offset}) [w={args.width}]")
+    elif args.x is not None and args.y is not None:
+        print(f"pixel x={args.x}, y={args.y} [w={args.width}]")
+    else:
+        print("give either --offset, or both --x and --y", file=sys.stderr)
+        return 1
+
+    opts = _mode_opts(args)
+    pad = max(len(m) for m in modes)
+    for mode in modes:
+        bpp = projections.bytes_per_pixel(mode)
+        phase = (args.phase or 0) if mode == "raw-rgb" else 0
+        cell = (8 * max(1, getattr(args, "scale", 1) or 1)
+                if mode in projections.GLYPH_MODES else 1)
+        omap = layout.OffsetMap(width=args.width, bpp=bpp, phase=phase,
+                                base=args.base, cell=cell)
+        if args.offset is not None:
+            off = args.offset
+            r = omap.offset_to_pixel(off)
+            if "error" in r:
+                print(f"  [{mode:<{pad}}] {r['error']}")
+                continue
+        else:
+            off = omap.pixel_to_offset(args.x, args.y)["offset"]
+        if args.input:
+            line = _mode_readout(mode, args.input, off, args.base, opts) or "(no readout)"
+        else:
+            line = f"offset {off} (0x{off:x})"
+        print(f"  [{mode:<{pad}}] {line}")
+    return 0
+
+
 def cmd_inspect(args) -> int:
+    raw_modes = getattr(args, "modes", None)
+    if raw_modes:
+        modes = [projections.resolve(m) for m in raw_modes.split(",") if m.strip()]
+        if len(modes) > 1:
+            return _inspect_multi(modes, args)
+        if modes:
+            args.mode = modes[0]  # single mode via --modes: use the detailed path
+
     mode = projections.resolve(args.mode)
     bpp = projections.bytes_per_pixel(mode)
     phase = (args.phase or 0) if mode == "raw-rgb" else 0
