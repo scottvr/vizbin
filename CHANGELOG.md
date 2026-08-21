@@ -16,6 +16,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is disallowed (the only limit is structural: `raw-rgb`/`text` aren't transforms).
   A chain's default colour is still its last stage's (so `xor,entropy` stays
   magma — no change from 0.3.0).
+- **`render --rgb t1,t2,t3` channel composition**: up to three transforms drive
+  R, G, B in parallel (`entropy,delta,xor`) — the *breadth* partner to `-t`'s
+  *depth*. `inspect --rgb ...` reports the three channel values at an offset,
+  matching the rendered pixel exactly. New API: `projections.compose_channels` /
+  `render_channels`.
 
 ## [0.3.0] - 2026-08-21
 

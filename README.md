@@ -102,6 +102,22 @@ vizbin render f.bin -m byteclass --paint gray         # a preset, repainted
   We decline to police taste; the only limit is structural: `raw-rgb`/`text`
   aren't equal-length byte streams, so they can't be transforms.
 
+Where `-t` chains transforms in *depth*, **`--rgb`** composes them in *breadth* —
+up to three transforms driving R, G, B in parallel:
+
+```sh
+vizbin render f.bin --rgb entropy,delta,xor -w 256   # R=entropy, G=delta, B=xor
+```
+
+One image answering *"where is it high-entropy **and** fast-changing **and**
+periodic?"* — your eye finds where the channels light up together. `inspect --rgb`
+reports the three channel values at an offset, matching the rendered pixel:
+
+```sh
+vizbin inspect f.bin -w 256 --rgb entropy,delta,xor --offset 260
+#   -> R(entropy)=0x19 (25)  G(delta)=0x13 (19)  B(xor)=0x12 (18)
+```
+
 ### sweep
 
 ```sh
