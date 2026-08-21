@@ -328,6 +328,18 @@ def pixel_count(name: str, data_len: int, *, phase: int = 0) -> int:
     return data_len
 
 
+def _lay_out(rgb: bytearray, p: int, width: int) -> Raster:
+    """Lay a flat R,G,B buffer of ``p`` pixels out at ``width``, padding to a
+    full final row with black."""
+    if p == 0 or width < 1:
+        return Raster(1, 1)
+    height = math.ceil(p / width)
+    total = width * height
+    if total > p:
+        rgb.extend(b"\x00" * ((total - p) * 3))
+    return Raster(width, height, rgb)
+
+
 def render(name: str, data: bytes, width: int, **opts) -> Raster:
     """Project ``data`` and lay it out at ``width`` pixels wide.
 
@@ -338,12 +350,43 @@ def render(name: str, data: bytes, width: int, **opts) -> Raster:
     if rn in GLYPH_MODES:
         from vizbin import textmode  # lazy: textmode imports back from here
         return textmode.render_text(data, width, **opts)
-    proj = PROJECTIONS[rn]
-    rgb, p = proj.build(data, opts)
-    if p == 0 or width < 1:
-        return Raster(1, 1)
-    height = math.ceil(p / width)
-    total = width * height
-    if total > p:
-        rgb.extend(b"\x00" * ((total - p) * 3))
-    return Raster(width, height, rgb)
+    rgb, p = PROJECTIONS[rn].build(data, opts)
+    return _lay_out(rgb, p, width)
+
+
+# ---------------------------------------------------------------------------
+# Pipelines: chain modes' transforms, paint with the last mode's colorizer
+# ---------------------------------------------------------------------------
+
+def compose_pipeline(modes: list[str]) -> Callable[[bytes, dict], tuple[bytearray, int]]:
+    """Build a projection builder that chains several modes.
+
+    A pipeline runs each mode's *transform* in order (output of one feeds the
+    next), then paints with the *last* mode's colorizer -- so ``xor,entropy`` is
+    "the entropy of the xor stream", and order matters (``entropy,xor`` differs).
+    Only 1:1 modes are pipeable; ``raw-rgb``/``text`` are not (they don't produce
+    an equal-length byte stream).
+    """
+    resolved = [resolve(m) for m in modes]
+    if not resolved:
+        raise ValueError("empty pipeline")
+    for m in resolved:
+        if PROJECTIONS.get(m) is None or PROJECTIONS[m].transform is None:
+            raise ValueError(f"mode {m!r} can't be used in a pipeline "
+                             f"(only 1:1 modes compose; not raw-rgb/text)")
+    steps = [TRANSFORMS[PROJECTIONS[m].transform] for m in resolved]  # type: ignore[index]
+    paint = COLORIZERS[PROJECTIONS[resolved[-1]].colorizer]  # type: ignore[index]
+
+    def build(data: bytes, opts: dict) -> tuple[bytearray, int]:
+        stream: _Bytes = data
+        for step in steps:
+            stream = step(bytes(stream), opts)
+        return paint(stream, opts), len(data)
+
+    return build
+
+
+def render_pipeline(modes: list[str], data: bytes, width: int, **opts) -> Raster:
+    """Render a pipeline of modes (see :func:`compose_pipeline`)."""
+    rgb, p = compose_pipeline(modes)(data, opts)
+    return _lay_out(rgb, p, width)

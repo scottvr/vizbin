@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `render --pipe m1,m2,...` **pipelines**: chain modes' transforms in order and
+  paint with the last mode's colorizer (e.g. `xor,entropy` = "entropy of the xor
+  stream"). Order-significant; a single-mode pipe equals the mode, and
+  `delta,gray` == `delta`. Only 1:1 modes compose (`raw-rgb`/`text` are rejected).
+  New API: `projections.compose_pipeline` / `render_pipeline`.
+
 ### Internal
 - Refactored the projection engine into composable **transforms** (bytes→bytes)
   and **colorizers** (bytes→pixels): each 1:1 mode is now a `(transform,

@@ -75,6 +75,22 @@ Window a region without extracting it first (great for reversing):
 vizbin render mystery.bin --offset 0x12000 --length 65536 -w 256
 ```
 
+#### Pipelines
+
+Chain modes with `--pipe`. Each mode is internally a *transform* (bytes→bytes)
+plus a *colorizer* (bytes→pixels); a pipeline runs the transforms in order and
+paints with the **last** mode's colour. **Order matters.**
+
+```sh
+vizbin render firmware.bin --pipe xor,entropy -w 256   # entropy *of the xor stream*
+vizbin render firmware.bin --pipe entropy,xor -w 256   # different: xor of the entropy indices
+vizbin render foo.bin --pipe delta,delta -w 256        # second derivative
+```
+
+A single-mode pipe is identical to the mode (`--pipe xor` == `-m xor`), and
+`--pipe delta,gray` == `-m delta`. Only the 1:1 modes compose; `raw-rgb` and
+`text` can't appear in a pipe.
+
 ### sweep
 
 ```sh
