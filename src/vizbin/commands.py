@@ -72,20 +72,24 @@ def _default_width(mode: str, data: bytes, phase: int) -> int:
 # render
 # ---------------------------------------------------------------------------
 
-def _render_pipeline(args, data: bytes, opts: dict, pipe: str) -> int:
-    modes = [m.strip() for m in pipe.split(",") if m.strip()]
+def _render_pipeline(args, data: bytes, opts: dict, spec: str,
+                     paint: str | None = None) -> int:
+    names = [m.strip() for m in spec.split(",") if m.strip()]
     width = args.width or layout.square_width(len(data))
     try:
-        raster = projections.render_pipeline(modes, data, width, **opts)
+        raster = projections.render_pipeline(names, data, width, paint=paint, **opts)
     except (ValueError, KeyError) as e:
         print(e.args[0] if e.args else str(e), file=sys.stderr)
         return 1
-    default = out_name(args.input, width=width, mode="pipe",
-                       suffix="-".join(m.replace("-", "") for m in modes))
+    suffix = "-".join(n.replace("-", "") for n in names)
+    if paint:
+        suffix += f".{paint}"
+    default = out_name(args.input, width=width, mode="pipe", suffix=suffix)
     out = _resolve_output(args, default)
     bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+    label = ">".join(names) + (f" +{paint}" if paint else "")
     print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
-          f"[pipe {'>'.join(modes)}] -> {out}")
+          f"[pipe {label}] -> {out}")
     if not getattr(args, "no_hints", False):
         advice = _text_advice(data)
         if advice:
@@ -96,11 +100,14 @@ def _render_pipeline(args, data: bytes, opts: dict, pipe: str) -> int:
 def cmd_render(args) -> int:
     data = load_region(args.input, args.offset, args.length)
     opts = _mode_opts(args)
+    paint = getattr(args, "paint", None)
 
-    if getattr(args, "pipe", None):
-        return _render_pipeline(args, data, opts, args.pipe)
+    if getattr(args, "transform", None):
+        return _render_pipeline(args, data, opts, args.transform, paint)
 
     mode = projections.resolve(args.mode)
+    if paint:  # -m <mode> --paint <colorizer>: mode's transform, repainted
+        return _render_pipeline(args, data, opts, mode, paint)
     width = args.width or _default_width(mode, data, opts["phase"])
 
     raster = projections.render(mode, data, width, **opts)

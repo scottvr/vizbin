@@ -72,4 +72,55 @@ def test_cli_render_pipe_bad_mode_errors(tmp_path, capsys):
     rc = main(["render", str(p), "--pipe", "xor,raw-rgb", "-w", "32",
                "-o", str(tmp_path / "o.bmp")])
     assert rc == 1
-    assert "pipeline" in capsys.readouterr().err
+    assert "transform" in capsys.readouterr().err
+
+
+# --- exposed axes: transform names, --paint, -t/--pipe alias ---------------
+
+def test_transform_names_are_first_class():
+    # bare transform names (identity, class) are usable, not just modes
+    assert _h(P.render_pipeline(["identity"], _DATA, 32)) == _h(P.render("gray", _DATA, 32))
+    # `class` transform painted with palette == byteclass mode
+    assert _h(P.render_pipeline(["class"], _DATA, 32, paint="palette")) == \
+        _h(P.render("byteclass", _DATA, 32))
+
+
+def test_paint_overrides_colorizer():
+    # xor's default is gray; repaint magma
+    default = _h(P.render_pipeline(["xor"], _DATA, 32, k=3))
+    magma = _h(P.render_pipeline(["xor"], _DATA, 32, k=3, paint="magma"))
+    assert default != magma
+    assert magma == _h(P.render_pipeline(["xor"], _DATA, 32, k=3, paint="magma"))
+
+
+def test_pipe_default_paint_is_last_stage_colour():
+    # compat: xor,entropy defaults to entropy's magma (0.3.0 behaviour)
+    assert _h(P.render_pipeline(["xor", "entropy"], _DATA, 32, window=64)) == \
+        _h(P.render_pipeline(["xor", "entropy"], _DATA, 32, window=64, paint="magma"))
+
+
+def test_any_transform_any_colorizer_no_paternalism():
+    # a "senseless" combo must still produce a valid image, not an error
+    r = P.render_pipeline(["xor", "entropy"], _DATA, 32, paint="palette")
+    ref = P.render("gray", _DATA, 32)
+    assert (r.width, r.height) == (ref.width, ref.height)
+    assert len(r.rgb) == r.width * r.height * 3
+
+
+def test_unknown_colorizer_raises():
+    with pytest.raises(KeyError):
+        P.compose_pipeline(["xor"], paint="rainbow")
+
+
+def test_cli_transform_and_paint(tmp_path, capsys):
+    p = tmp_path / "in.bin"
+    p.write_bytes(_DATA)
+    o = tmp_path / "o.bmp"
+    # -t alias + --paint
+    assert main(["render", str(p), "-t", "xor,entropy", "--paint", "palette",
+                 "-w", "32", "-o", str(o)]) == 0
+    assert "[pipe xor>entropy +palette]" in capsys.readouterr().out
+    # -m <mode> --paint <colorizer>
+    assert main(["render", str(p), "-m", "byteclass", "--paint", "gray",
+                 "-w", "32", "-o", str(o)]) == 0
+    assert "+gray" in capsys.readouterr().out

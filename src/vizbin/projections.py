@@ -358,35 +358,70 @@ def render(name: str, data: bytes, width: int, **opts) -> Raster:
 # Pipelines: chain modes' transforms, paint with the last mode's colorizer
 # ---------------------------------------------------------------------------
 
-def compose_pipeline(modes: list[str]) -> Callable[[bytes, dict], tuple[bytearray, int]]:
-    """Build a projection builder that chains several modes.
+def _resolve_transform_name(name: str) -> str:
+    """Resolve a transform name or a 1:1 mode name to a TRANSFORMS key.
 
-    A pipeline runs each mode's *transform* in order (output of one feeds the
-    next), then paints with the *last* mode's colorizer -- so ``xor,entropy`` is
-    "the entropy of the xor stream", and order matters (``entropy,xor`` differs).
-    Only 1:1 modes are pipeable; ``raw-rgb``/``text`` are not (they don't produce
-    an equal-length byte stream).
+    Transform names (``xor``, ``class``, ``identity``, ...) map directly; a 1:1
+    mode name (``gray``, ``byteclass``, ...) contributes its transform. Since
+    the overlapping names (``xor``/``delta``/...) name the same transform either
+    way, both vocabularies compose freely. ``raw-rgb``/``text`` are not
+    transforms.
     """
-    resolved = [resolve(m) for m in modes]
-    if not resolved:
+    n = _ALIASES.get(name.lower(), name.lower())
+    if n in TRANSFORMS:
+        return n
+    if n in PROJECTIONS:
+        t = PROJECTIONS[n].transform
+        if t is None:
+            raise ValueError(f"mode {n!r} can't be used as a transform "
+                             f"(not an equal-length byte stream; e.g. raw-rgb)")
+        return t
+    if n in GLYPH_MODES:
+        raise ValueError(f"mode {n!r} can't be used as a transform")
+    raise KeyError(f"unknown transform {name!r}; known: "
+                   f"{', '.join(sorted(TRANSFORMS))} (or a 1:1 mode name)")
+
+
+def _default_colorizer_for(name: str) -> str:
+    """The colorizer a stage paints with absent ``--paint``: a mode's own colour,
+    else gray for a bare transform."""
+    n = _ALIASES.get(name.lower(), name.lower())
+    if n in PROJECTIONS and PROJECTIONS[n].colorizer is not None:
+        return PROJECTIONS[n].colorizer  # type: ignore[return-value]
+    return "gray"
+
+
+def compose_pipeline(names: list[str], paint: str | None = None
+                     ) -> Callable[[bytes, dict], tuple[bytearray, int]]:
+    """Build a projection builder that chains transforms and paints the result.
+
+    Each name is a transform or a 1:1 mode (whose transform is used); they run in
+    order (output feeds the next). The result is painted by ``paint`` if given,
+    else by the last stage's natural colorizer (a mode's own colour, or gray for
+    a bare transform). So ``xor,entropy`` is "the entropy of the xor stream"
+    (magma by default), and order matters (``entropy,xor`` differs). Any
+    transform pairs with any colorizer -- no combination is disallowed.
+    """
+    if not names:
         raise ValueError("empty pipeline")
-    for m in resolved:
-        if PROJECTIONS.get(m) is None or PROJECTIONS[m].transform is None:
-            raise ValueError(f"mode {m!r} can't be used in a pipeline "
-                             f"(only 1:1 modes compose; not raw-rgb/text)")
-    steps = [TRANSFORMS[PROJECTIONS[m].transform] for m in resolved]  # type: ignore[index]
-    paint = COLORIZERS[PROJECTIONS[resolved[-1]].colorizer]  # type: ignore[index]
+    steps = [TRANSFORMS[_resolve_transform_name(n)] for n in names]
+    ckey = paint if paint is not None else _default_colorizer_for(names[-1])
+    if ckey not in COLORIZERS:
+        raise KeyError(f"unknown colorizer {ckey!r}; known: "
+                       f"{', '.join(sorted(COLORIZERS))}")
+    painter = COLORIZERS[ckey]
 
     def build(data: bytes, opts: dict) -> tuple[bytearray, int]:
         stream: _Bytes = data
         for step in steps:
             stream = step(bytes(stream), opts)
-        return paint(stream, opts), len(data)
+        return painter(stream, opts), len(data)
 
     return build
 
 
-def render_pipeline(modes: list[str], data: bytes, width: int, **opts) -> Raster:
-    """Render a pipeline of modes (see :func:`compose_pipeline`)."""
-    rgb, p = compose_pipeline(modes)(data, opts)
+def render_pipeline(names: list[str], data: bytes, width: int,
+                    paint: str | None = None, **opts) -> Raster:
+    """Render a transform pipeline (see :func:`compose_pipeline`)."""
+    rgb, p = compose_pipeline(names, paint=paint)(data, opts)
     return _lay_out(rgb, p, width)
