@@ -72,10 +72,35 @@ def _default_width(mode: str, data: bytes, phase: int) -> int:
 # render
 # ---------------------------------------------------------------------------
 
+def _render_pipeline(args, data: bytes, opts: dict, pipe: str) -> int:
+    modes = [m.strip() for m in pipe.split(",") if m.strip()]
+    width = args.width or layout.square_width(len(data))
+    try:
+        raster = projections.render_pipeline(modes, data, width, **opts)
+    except (ValueError, KeyError) as e:
+        print(e.args[0] if e.args else str(e), file=sys.stderr)
+        return 1
+    default = out_name(args.input, width=width, mode="pipe",
+                       suffix="-".join(m.replace("-", "") for m in modes))
+    out = _resolve_output(args, default)
+    bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+    print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
+          f"[pipe {'>'.join(modes)}] -> {out}")
+    if not getattr(args, "no_hints", False):
+        advice = _text_advice(data)
+        if advice:
+            print(f"  hint: {advice}")
+    return 0
+
+
 def cmd_render(args) -> int:
-    mode = projections.resolve(args.mode)
     data = load_region(args.input, args.offset, args.length)
     opts = _mode_opts(args)
+
+    if getattr(args, "pipe", None):
+        return _render_pipeline(args, data, opts, args.pipe)
+
+    mode = projections.resolve(args.mode)
     width = args.width or _default_width(mode, data, opts["phase"])
 
     raster = projections.render(mode, data, width, **opts)
