@@ -82,10 +82,14 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("-w", "--width", type=int, default=None,
                    help="image width in pixels (default: square-ish)")
     r.add_argument("-m", "--mode", default="gray", help=modes_help)
-    r.add_argument("--pipe", default=None,
-                   help="chain modes into a pipeline, e.g. xor,entropy "
-                        "(transforms chain in order; the last mode's colour "
-                        "paints). Order matters. Overrides -m.")
+    r.add_argument("-t", "--transform", "--pipe", dest="transform", default=None,
+                   help="transform axis: a transform or mode name, or a comma-chain "
+                        "(e.g. xor,entropy). Painted by the last stage's colour "
+                        "unless --paint is given. Order matters. Overrides -m. "
+                        "(--pipe is an alias.)")
+    r.add_argument("--paint", default=None,
+                   help="colorizer axis: gray/magma/palette/nibble. Overrides the "
+                        "mode's or pipeline's default colour.")
     _add_mode_opts(r)
     _add_region(r)
     r.set_defaults(func=commands.cmd_render)

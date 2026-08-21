@@ -75,21 +75,32 @@ Window a region without extracting it first (great for reversing):
 vizbin render mystery.bin --offset 0x12000 --length 65536 -w 256
 ```
 
-#### Pipelines
+#### Composing: two axes
 
-Chain modes with `--pipe`. Each mode is internally a *transform* (bytes→bytes)
-plus a *colorizer* (bytes→pixels); a pipeline runs the transforms in order and
-paints with the **last** mode's colour. **Order matters.**
+A projection is a **transform** (`-t`/`--transform`: *what to measure* — bytes→bytes)
+plus a **colorizer** (`--paint`: *how to paint* — bytes→pixels). The named modes
+are just **presets** for common pairings (`gray` = `identity`+`gray`, `byteclass`
+= `class`+`palette`, `entropy` = `entropy`+`magma`, …) — they don't limit what's
+expressible. Mix the axes freely:
 
 ```sh
-vizbin render firmware.bin --pipe xor,entropy -w 256   # entropy *of the xor stream*
-vizbin render firmware.bin --pipe entropy,xor -w 256   # different: xor of the entropy indices
-vizbin render foo.bin --pipe delta,delta -w 256        # second derivative
+vizbin render f.bin -t xor --paint magma            # xor stream, magma-painted
+vizbin render f.bin -t xor,entropy --paint palette   # chain transforms, repaint
+vizbin render f.bin -t class                          # bare transform (default gray)
+vizbin render f.bin -m byteclass --paint gray         # a preset, repainted
 ```
 
-A single-mode pipe is identical to the mode (`--pipe xor` == `-m xor`), and
-`--pipe delta,gray` == `-m delta`. Only the 1:1 modes compose; `raw-rgb` and
-`text` can't appear in a pipe.
+- **`-t/--transform`** takes a transform or mode name, or a comma-**chain** run in
+  order (output feeds the next), so `xor,entropy` is "the entropy of the xor
+  stream." **Order matters** (`entropy,xor` differs). `--pipe` is an alias.
+- Transforms: `identity, xor, delta, bitplane, class, entropy`. Colorizers:
+  `gray, magma, palette, nibble`.
+- Without `--paint`, a chain paints with its **last stage's** colour (so
+  `xor,entropy` stays magma), and a bare transform defaults to gray.
+- **No combination is disallowed** — `palette` on non-class data just paints the
+  out-of-range values black, `magma` on raw bytes is the ramp over byte values.
+  We decline to police taste; the only limit is structural: `raw-rgb`/`text`
+  aren't equal-length byte streams, so they can't be transforms.
 
 ### sweep
 

@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Exposed the two projection axes.** A mode is a *transform* (`-t`/`--transform`,
+  also `--pipe`) plus a *colorizer* (`--paint`); the named modes are now just
+  presets for common pairings and no longer limit what's expressible. `-t` accepts
+  transform names (`identity, xor, delta, bitplane, class, entropy`) as well as
+  mode names, and `--paint` (`gray, magma, palette, nibble`) overrides the colour
+  of any mode or pipeline. Any transform pairs with any colorizer — no combination
+  is disallowed (the only limit is structural: `raw-rgb`/`text` aren't transforms).
+  A chain's default colour is still its last stage's (so `xor,entropy` stays
+  magma — no change from 0.3.0).
+
 ## [0.3.0] - 2026-08-21
 
 ### Added
