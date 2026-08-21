@@ -70,6 +70,15 @@ New to it? Start with the [exploration guide](docs/QUICKSTART-TUTORIAL.md) — a
 guided tour of small experiments that show what vizbin can see, and how changing
 one assumption changes the picture.
 
+Stay in the terminal — `--term` renders straight into the console with 24-bit
+ANSI colour and Unicode half-blocks (two pixels per character cell), no file and
+no image viewer. Perfect over SSH or on a headless box:
+
+```sh
+vizbin render firmware.bin -m entropy --term
+vizbin render firmware.bin --rgb entropy,delta,xor --term
+```
+
 Window a region without extracting it first (great for reversing):
 
 ```sh

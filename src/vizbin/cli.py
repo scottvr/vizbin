@@ -93,6 +93,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--rgb", default=None,
                    help="channel composition: up to 3 transforms driving R,G,B "
                         "(e.g. entropy,delta,xor). Its own colouring; overrides -m/-t.")
+    r.add_argument("--term", action="store_true",
+                   help="render into the terminal (24-bit ANSI half-blocks) "
+                        "instead of writing a file")
     _add_mode_opts(r)
     _add_region(r)
     r.set_defaults(func=commands.cmd_render)

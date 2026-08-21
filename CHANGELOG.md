@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`render --term`** — render directly into the terminal with 24-bit ANSI colour
+  and Unicode half-block glyphs (two pixels per character cell), instead of
+  writing a file. Works with every mode plus `-t`/`--pipe`/`--rgb`; auto-fits the
+  terminal size. No image viewer, no file — ideal over SSH / on headless boxes.
 - **`infer`** — structure inference: draft a record/field layout from repeating
   binary structure. Detects the record stride by byte-autocorrelation (any size,
   or `--stride N`), profiles each byte column across records, and reports fields
