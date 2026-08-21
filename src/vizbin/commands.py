@@ -312,7 +312,7 @@ _CTRL_NAMES = {0x00: "NUL", 0x09: "TAB", 0x0A: "LF", 0x0D: "CR", 0x7F: "DEL"}
 
 
 def _shannon_bits(window: list[int]) -> float:
-    """Shannon entropy in bits of a byte window (matches _build_entropy)."""
+    """Shannon entropy in bits of a byte window (matches the entropy transform)."""
     n = len(window)
     if n == 0:
         return 0.0

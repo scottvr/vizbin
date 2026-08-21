@@ -27,6 +27,10 @@ class Projection:
     bpp: int  # source bytes consumed per pixel (for offset mapping)
     build: Callable[[bytes, dict], tuple[bytearray, int]]
     doc: str
+    # For 1:1 modes, the (transform, colorizer) names this projection composes
+    # (see TRANSFORMS / COLORIZERS). None for bespoke modes like raw-rgb.
+    transform: str | None = None
+    colorizer: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -85,9 +89,6 @@ def text_ratio(data: bytes) -> float:
 
 
 _CLASS_TABLE = bytes(_byte_class(i) for i in range(256))
-_PAL_R = bytes(_CLASS_COLORS[_byte_class(i)][0] for i in range(256))
-_PAL_G = bytes(_CLASS_COLORS[_byte_class(i)][1] for i in range(256))
-_PAL_B = bytes(_CLASS_COLORS[_byte_class(i)][2] for i in range(256))
 
 
 # Channels come from either bytes.translate (-> bytes) or bytearray.translate
@@ -114,31 +115,59 @@ def _interleave(r: _Bytes, g: _Bytes, b: _Bytes) -> bytearray:
 
 
 # ---------------------------------------------------------------------------
-# Projection builders
+# Transforms (bytes -> bytes) and colorizers (bytes -> pixels)
 # ---------------------------------------------------------------------------
+#
+# A projection is a *transform* -- measure the bytes into a new equal-length
+# byte stream -- followed by a *colorizer* that paints that stream into an
+# R,G,B buffer. Most modes are a 1:1 (transform, colorizer) pair, which is what
+# lets them compose. ``raw-rgb`` packs three source bytes into one pixel and
+# ``text`` is a grid renderer, so both stay outside this 1:1 model.
 
-def _build_gray(data: bytes, opts: dict) -> tuple[bytearray, int]:
-    return _interleave_gray(data), len(data)
-
-
-def _build_raw_rgb(data: bytes, opts: dict) -> tuple[bytearray, int]:
-    phase = int(opts.get("phase", 0)) % 3
-    d = data[phase:]
-    p = len(d) // 3
-    return bytearray(d[:p * 3]), p
-
-
-def _build_byteclass(data: bytes, opts: dict) -> tuple[bytearray, int]:
-    r = data.translate(_PAL_R)
-    g = data.translate(_PAL_G)
-    b = data.translate(_PAL_B)
-    return _interleave(r, g, b), len(data)
+Transform = Callable[[bytes, dict], _Bytes]
+Colorizer = Callable[[_Bytes, dict], bytearray]
 
 
-def _build_entropy(data: bytes, opts: dict) -> tuple[bytearray, int]:
+# -- transforms -------------------------------------------------------------
+
+def _t_identity(data: bytes, opts: dict) -> _Bytes:
+    return data
+
+
+def _t_xor(data: bytes, opts: dict) -> _Bytes:
     n = len(data)
     if n == 0:
-        return bytearray(), 0
+        return b""
+    k = max(1, int(opts.get("k", 1)))
+    if k >= n:
+        return data  # nothing to xor against; pass the bytes through
+    prev = bytes(k) + data[:-k]
+    return bytes(a ^ b for a, b in zip(data, prev))
+
+
+def _t_delta(data: bytes, opts: dict) -> _Bytes:
+    if not data:
+        return b""
+    prev = b"\x00" + data[:-1]
+    return bytes(x - y if x >= y else y - x for x, y in zip(data, prev))
+
+
+def _t_bitplane(data: bytes, opts: dict) -> _Bytes:
+    plane = max(0, min(7, int(opts.get("plane", 7))))
+    mask = 1 << plane
+    table = bytes(255 if (i & mask) else 0 for i in range(256))
+    return data.translate(table)
+
+
+def _t_class(data: bytes, opts: dict) -> _Bytes:
+    return data.translate(_CLASS_TABLE)  # -> class index 0..5
+
+
+def _t_entropy(data: bytes, opts: dict) -> _Bytes:
+    """Sliding-window Shannon entropy scaled to a 0..255 magma index."""
+    n = len(data)
+    if n == 0:
+        return b""
     window = max(2, min(int(opts.get("window", 256)), n))
     log2 = math.log2
     # +2 headroom: a count can momentarily reach window+1 between add and evict.
@@ -166,61 +195,100 @@ def _build_entropy(data: bytes, opts: dict) -> tuple[bytearray, int]:
         ent = log2(total) - sum_clogc / total  # bits in [0, log2(total)]
         v = ent * inv8
         idx[i] = 255 if v >= 1.0 else int(v * 255)
-
-    r = idx.translate(_CMAP_R)
-    g = idx.translate(_CMAP_G)
-    b = idx.translate(_CMAP_B)
-    return _interleave(r, g, b), n
+    return idx
 
 
-def _build_delta(data: bytes, opts: dict) -> tuple[bytearray, int]:
-    n = len(data)
-    if n == 0:
-        return bytearray(), 0
-    prev = b"\x00" + data[:-1]
-    d = bytes(x - y if x >= y else y - x for x, y in zip(data, prev))
-    return _interleave_gray(d), n
+TRANSFORMS: dict[str, Transform] = {
+    "identity": _t_identity,
+    "xor": _t_xor,
+    "delta": _t_delta,
+    "bitplane": _t_bitplane,
+    "class": _t_class,
+    "entropy": _t_entropy,
+}
 
 
-def _build_xor(data: bytes, opts: dict) -> tuple[bytearray, int]:
-    n = len(data)
-    if n == 0:
-        return bytearray(), 0
-    k = max(1, int(opts.get("k", 1)))
-    if k >= n:
-        return _interleave_gray(data), n
-    prev = bytes(k) + data[:-k]
-    x = bytes(a ^ b for a, b in zip(data, prev))
-    return _interleave_gray(x), n
+# -- colorizers -------------------------------------------------------------
+
+# class index (0..5) -> class colour; slots past the class count pad the
+# 256-entry translate table and are never hit.
+_PALIDX_R = bytes(_CLASS_COLORS[i][0] if i < len(_CLASS_COLORS) else 0 for i in range(256))
+_PALIDX_G = bytes(_CLASS_COLORS[i][1] if i < len(_CLASS_COLORS) else 0 for i in range(256))
+_PALIDX_B = bytes(_CLASS_COLORS[i][2] if i < len(_CLASS_COLORS) else 0 for i in range(256))
+
+_NIB_HI = bytes((i >> 4) * 17 for i in range(256))
+_NIB_LO = bytes((i & 0x0F) * 17 for i in range(256))
 
 
-def _build_bitplane(data: bytes, opts: dict) -> tuple[bytearray, int]:
-    plane = max(0, min(7, int(opts.get("plane", 7))))
-    mask = 1 << plane
-    table = bytes(255 if (i & mask) else 0 for i in range(256))
-    bits = data.translate(table)
-    return _interleave_gray(bits), len(data)
+def _c_gray(stream: _Bytes, opts: dict) -> bytearray:
+    return _interleave_gray(stream)
 
 
-def _build_nibble(data: bytes, opts: dict) -> tuple[bytearray, int]:
-    hi = bytes((i >> 4) * 17 for i in range(256))
-    lo = bytes((i & 0x0F) * 17 for i in range(256))
-    r = data.translate(hi)
-    g = data.translate(lo)
-    b = bytes(len(data))
-    return _interleave(r, g, b), len(data)
+def _c_magma(stream: _Bytes, opts: dict) -> bytearray:
+    s = bytes(stream)
+    return _interleave(s.translate(_CMAP_R), s.translate(_CMAP_G), s.translate(_CMAP_B))
 
+
+def _c_palette(stream: _Bytes, opts: dict) -> bytearray:
+    s = bytes(stream)
+    return _interleave(s.translate(_PALIDX_R), s.translate(_PALIDX_G), s.translate(_PALIDX_B))
+
+
+def _c_nibble(stream: _Bytes, opts: dict) -> bytearray:
+    s = bytes(stream)
+    return _interleave(s.translate(_NIB_HI), s.translate(_NIB_LO), bytes(len(s)))
+
+
+COLORIZERS: dict[str, Colorizer] = {
+    "gray": _c_gray,
+    "magma": _c_magma,
+    "palette": _c_palette,
+    "nibble": _c_nibble,
+}
+
+
+def compose(transform: str, colorizer: str) -> Callable[[bytes, dict], tuple[bytearray, int]]:
+    """Build a 1:1 projection builder from a transform + colorizer name."""
+    tf = TRANSFORMS[transform]
+    cf = COLORIZERS[colorizer]
+
+    def build(data: bytes, opts: dict) -> tuple[bytearray, int]:
+        return cf(tf(data, opts), opts), len(data)
+
+    return build
+
+
+# -- raw-rgb: a bespoke 3:1 packing, outside the transform/colorizer model ---
+
+def _build_raw_rgb(data: bytes, opts: dict) -> tuple[bytearray, int]:
+    phase = int(opts.get("phase", 0)) % 3
+    d = data[phase:]
+    p = len(d) // 3
+    return bytearray(d[:p * 3]), p
+
+
+# ---------------------------------------------------------------------------
+# Projection registry
+# ---------------------------------------------------------------------------
+
+# 1:1 modes expressed as (transform, colorizer, doc).
+_COMPOSED: dict[str, tuple[str, str, str]] = {
+    "gray":      ("identity", "gray",    "one byte -> one grayscale pixel"),
+    "byteclass": ("class",    "palette", "colour by semantic class (nul/ff/ws/ascii/ctrl/high)"),
+    "entropy":   ("entropy",  "magma",   "sliding-window Shannon entropy, magma colormap"),
+    "delta":     ("delta",    "gray",    "|byte[i]-byte[i-1]| as grayscale"),
+    "xor":       ("xor",      "gray",    "byte[i] XOR byte[i-k] as grayscale"),
+    "bitplane":  ("bitplane", "gray",    "a single bitplane as black/white"),
+    "nibble":    ("identity", "nibble",  "high nibble -> red, low nibble -> green"),
+}
 
 PROJECTIONS: dict[str, Projection] = {
-    "gray":      Projection("gray", 1, _build_gray, "one byte -> one grayscale pixel"),
-    "raw-rgb":   Projection("raw-rgb", 3, _build_raw_rgb, "three bytes -> one RGB pixel (phase-sensitive)"),
-    "byteclass": Projection("byteclass", 1, _build_byteclass, "colour by semantic class (nul/ff/ws/ascii/ctrl/high)"),
-    "entropy":   Projection("entropy", 1, _build_entropy, "sliding-window Shannon entropy, magma colormap"),
-    "delta":     Projection("delta", 1, _build_delta, "|byte[i]-byte[i-1]| as grayscale"),
-    "xor":       Projection("xor", 1, _build_xor, "byte[i] XOR byte[i-k] as grayscale"),
-    "bitplane":  Projection("bitplane", 1, _build_bitplane, "a single bitplane as black/white"),
-    "nibble":    Projection("nibble", 1, _build_nibble, "high nibble -> red, low nibble -> green"),
+    name: Projection(name, 1, compose(t, c), doc, transform=t, colorizer=c)
+    for name, (t, c, doc) in _COMPOSED.items()
 }
+PROJECTIONS["raw-rgb"] = Projection(
+    "raw-rgb", 3, _build_raw_rgb,
+    "three bytes -> one RGB pixel (phase-sensitive)")
 
 # Glyph-grid modes: not one-byte-one-pixel, so they live outside PROJECTIONS
 # and are dispatched separately by ``render`` (see :mod:`vizbin.textmode`).
