@@ -85,6 +85,10 @@ def cmd_render(args) -> int:
     bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
     print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
           f"[{mode}] -> {out}")
+    if mode != "text" and not getattr(args, "no_hints", False):
+        advice = _text_advice(data)
+        if advice:
+            print(f"  hint: {advice}")
     return 0
 
 
@@ -258,6 +262,24 @@ def _text_advice(data: bytes) -> str | None:
     return None
 
 
+def _ascii_hint(path: str, offset: int, radius: int = 16) -> str | None:
+    """A 'psst, these look like text' hint for the bytes around ``offset``.
+
+    Advisory only. Fires when the local window is mostly printable, rendering it
+    as the string it spells (non-printables as ``.``) -- the "you asked for
+    colours, but those are hex for a word" nudge. Returns ``None`` otherwise.
+    """
+    start = max(0, offset - radius)
+    buf = load_region(path, start, 2 * radius + 1)
+    if not buf:
+        return None
+    printable = sum(1 for x in buf if 0x20 <= x <= 0x7E or x in (0x09, 0x0A, 0x0D))
+    if printable / len(buf) < 0.75:
+        return None
+    rendered = "".join(chr(x) if 0x20 <= x <= 0x7E else "." for x in buf)
+    return f'psst: bytes [{start}-{start + len(buf) - 1}] look like text: "{rendered}"'
+
+
 def cmd_suggest(args) -> int:
     data = load_region(args.input, args.offset, args.length)
     suggestions = layout.suggest(data, top=args.top)
@@ -270,9 +292,10 @@ def cmd_suggest(args) -> int:
         print(f"Suggested widths for {args.input}:")
         for s in suggestions:
             print(f"  {s.width:<7} {s.family}")
-    advice = _text_advice(data)
-    if advice:
-        print(f"\nhint: {advice}")
+    if not getattr(args, "no_hints", False):
+        advice = _text_advice(data)
+        if advice:
+            print(f"\nhint: {advice}")
     return 0
 
 
@@ -402,6 +425,15 @@ def _mode_readout(mode: str, path: str, offset: int, base: int, opts: dict) -> s
     return None
 
 
+def _maybe_ascii_hint(args, modes: list[str], offset: int) -> None:
+    """Print the 'psst, looks like text' hint unless suppressed or redundant."""
+    if (getattr(args, "input", None) and not getattr(args, "no_hints", False)
+            and "text" not in modes):
+        hint = _ascii_hint(args.input, offset)
+        if hint:
+            print(f"  {hint}")
+
+
 def _inspect_multi(modes: list[str], args) -> int:
     """Stack per-mode readouts for one coordinate under a shared header.
 
@@ -420,6 +452,7 @@ def _inspect_multi(modes: list[str], args) -> int:
 
     opts = _mode_opts(args)
     pad = max(len(m) for m in modes)
+    hint_off = args.offset
     for mode in modes:
         bpp = projections.bytes_per_pixel(mode)
         phase = (args.phase or 0) if mode == "raw-rgb" else 0
@@ -435,11 +468,15 @@ def _inspect_multi(modes: list[str], args) -> int:
                 continue
         else:
             off = omap.pixel_to_offset(args.x, args.y)["offset"]
+        if hint_off is None:
+            hint_off = off
         if args.input:
             line = _mode_readout(mode, args.input, off, args.base, opts) or "(no readout)"
         else:
             line = f"offset {off} (0x{off:x})"
         print(f"  [{mode:<{pad}}] {line}")
+    if hint_off is not None:
+        _maybe_ascii_hint(args, modes, hint_off)
     return 0
 
 
@@ -479,6 +516,7 @@ def cmd_inspect(args) -> int:
             readout = _mode_readout(mode, args.input, args.offset, args.base, _mode_opts(args))
             if readout:
                 print(f"  -> {readout}")
+        _maybe_ascii_hint(args, [mode], args.offset)
         return 0
 
     if args.x is not None and args.y is not None:
@@ -495,6 +533,7 @@ def cmd_inspect(args) -> int:
             readout = _mode_readout(mode, args.input, r["offset"], args.base, _mode_opts(args))
             if readout:
                 print(f"  -> {readout}")
+        _maybe_ascii_hint(args, [mode], r["offset"])
         return 0
 
     print("give either --offset, or both --x and --y", file=sys.stderr)
