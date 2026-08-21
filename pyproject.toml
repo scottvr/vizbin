@@ -79,7 +79,10 @@ select = ["E4", "E7", "E9", "F", "B"]
 "tests/*" = ["E402"]
 
 [tool.mypy]
-python_version = "3.9"
+# mypy's assumed stdlib/syntax version (current mypy dropped 3.9 config support).
+# Actual 3.9 *runtime* support is proven by the 3.9 leg of the CI test matrix,
+# not by this setting.
+python_version = "3.10"
 files = ["src"]
 warn_unused_configs = true
 warn_redundant_casts = true
