@@ -188,6 +188,15 @@ def build_parser() -> argparse.ArgumentParser:
                         "(like strings -n; default 6)")
     i.set_defaults(func=commands.cmd_inspect)
 
+    # infer
+    n = add("infer", help="infer a draft record/field layout")
+    n.add_argument("input")
+    n.add_argument("--stride", type=_auto_int, default=None,
+                   help="force record length in bytes (accepts 0x..); "
+                        "default: auto via row-coherence")
+    _add_region(n)
+    n.set_defaults(func=commands.cmd_infer)
+
     # bmp
     b = add("bmp", help="reversible payload-as-pixels BMP")
     b.add_argument("input")

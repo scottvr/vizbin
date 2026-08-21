@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **`infer`** — structure inference: draft a record/field layout from repeating
+  binary structure. Detects the record stride by byte-autocorrelation (any size,
+  or `--stride N`), profiles each byte column across records, and reports fields
+  with evidence + confidence: constant **magic**/reserved, monotonic **counters**
+  (with endianness), printable **strings**, and high-entropy **blobs**. Reports
+  honestly when there's no strong record structure. Closes the loop from "I can
+  *see* records" to "here's a machine-readable guess at their layout." (Slice 1;
+  JSON/Kaitai export is planned.)
+
 ## [0.4.0] - 2026-08-21
 
 ### Added
