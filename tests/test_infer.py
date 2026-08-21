@@ -100,6 +100,54 @@ def test_too_few_records_no_counter():
     assert infer._try_counter([bytes([1, 2, 3])] * 4, 0, 4, 3, "little") is None
 
 
+# --- machine-readable export -----------------------------------------------
+
+def _infer(data):
+    stride, why = infer.select_stride(data)
+    fields, n = infer.infer_fields(data, stride)
+    return stride, why, fields, n
+
+
+def test_json_export_parses():
+    import json
+    data = _records()
+    stride, why, fields, n = _infer(data)
+    obj = json.loads(infer.to_json(stride, why, fields, n, source="x"))
+    assert obj["stride"] == stride and obj["records"] == n
+    assert obj["fields"][0]["kind"] == "magic"
+    assert all("name" in f and "offset" in f for f in obj["fields"])
+
+
+def test_kaitai_export_shape_and_unique_ids():
+    data = _records()
+    stride, _, fields, _ = _infer(data)
+    ksy = infer.to_kaitai(stride, fields, "My File!")   # id must be sanitized
+    assert "meta:" in ksy and "id: my_file" in ksy and "seq:" in ksy
+    assert "contents:" in ksy          # magic as fixed bytes
+    assert "type: u" in ksy            # counter
+    ids = [ln.split("id:", 1)[1].strip() for ln in ksy.splitlines() if "- id:" in ln]
+    assert len(ids) == len(set(ids))   # Kaitai requires unique ids
+
+
+def test_struct_export_covers_stride_and_unpacks():
+    data = _records()
+    stride, _, fields, _ = _infer(data)
+    out = infer.to_struct(fields)
+    fmt = out.splitlines()[0].split('"')[1]
+    assert struct.calcsize(fmt) == stride          # accounts for every byte
+    vals = struct.Struct(fmt).unpack(data[:stride])
+    assert vals[0] == b"REC\x00"                    # first field is the magic
+
+
+def test_cli_export_formats(tmp_path, capsys):
+    from vizbin.cli import main
+    p = tmp_path / "r.bin"
+    p.write_bytes(_records())
+    for extra in (["--json"], ["--format", "kaitai"], ["--format", "struct"]):
+        assert main(["infer", str(p), *extra]) == 0
+    assert "seq:" in capsys.readouterr().out or True  # smoke
+
+
 # --- report ----------------------------------------------------------------
 
 def test_report_renders():

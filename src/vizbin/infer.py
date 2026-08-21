@@ -314,3 +314,97 @@ def format_report(data: bytes, stride: int, why: str,
     lines.append("")
     lines.append(f"  {len(fields)} fields covering {covered}/{stride} bytes")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# machine-readable export
+# ---------------------------------------------------------------------------
+
+def _sanitize_id(name: str) -> str:
+    """A valid lowercase identifier (Kaitai/struct field or meta id)."""
+    s = "".join(c if c.isalnum() else "_" for c in name.lower()).strip("_")
+    if not s or not s[0].isalpha():
+        s = "r_" + s
+    return s
+
+
+def _field_names(fields: list[Field]) -> list[str]:
+    """Unique lowercase names, one per field, for exports."""
+    base_for = {"magic": "magic", "counter": "count", "string": "text",
+                "reserved": "reserved", "blob": "data", "const": "const",
+                "bytes": "field"}
+    seen: dict[str, int] = {}
+    out = []
+    for f in fields:
+        base = base_for.get(f.kind, "field")
+        seen[base] = seen.get(base, 0) + 1
+        out.append(base if seen[base] == 1 else f"{base}{seen[base]}")
+    return out
+
+
+def to_json(stride: int, why: str, fields: list[Field], n_rec: int,
+            source: str | None = None) -> str:
+    import json
+    names = _field_names(fields)
+    return json.dumps({
+        "source": source,
+        "stride": stride,
+        "records": n_rec,
+        "detected_by": why,
+        "fields": [
+            {"name": name, "offset": f.offset, "size": f.size, "kind": f.kind,
+             "confidence": f.confidence, "evidence": f.evidence,
+             **({"detail": f.detail} if f.detail else {})}
+            for f, name in zip(fields, names)
+        ],
+    }, indent=2)
+
+
+def to_kaitai(stride: int, fields: list[Field], meta_id: str = "record") -> str:
+    """A Kaitai Struct (.ksy) stub for one record."""
+    names = _field_names(fields)
+    lines = ["meta:", f"  id: {_sanitize_id(meta_id)}", "seq:"]
+    for f, name in zip(fields, names):
+        lines.append(f"  - id: {name}")
+        value = f.detail.get("value")
+        if f.kind in ("magic", "const") and value:
+            arr = ", ".join(f"0x{b:02x}" for b in bytes.fromhex(value))
+            lines.append(f"    contents: [{arr}]")
+        elif f.kind == "counter":
+            suffix = "le" if f.detail.get("endian") == "little" else "be"
+            lines.append(f"    type: u{f.size}{suffix}")
+        elif f.kind == "string":
+            lines.append("    type: str")
+            lines.append(f"    size: {f.size}")
+            lines.append("    encoding: ASCII")
+        else:  # reserved / blob / bytes -> raw bytes
+            lines.append(f"    size: {f.size}")
+    return "\n".join(lines) + "\n"
+
+
+def to_struct(fields: list[Field]) -> str:
+    """A Python ``struct`` format string + field names for one record."""
+    endians = [f.detail["endian"] for f in fields
+               if f.kind == "counter" and "endian" in f.detail]
+    order = ">" if endians and endians[0] == "big" else "<"
+    mixed = len(set(endians)) > 1
+    intcode = {2: "H", 4: "I", 8: "Q"}
+    names = _field_names(fields)
+    codes, fieldnames = [], []
+    for f, name in zip(fields, names):
+        if f.kind == "counter" and f.size in intcode:
+            codes.append(intcode[f.size])
+            fieldnames.append(name)
+        elif f.kind == "reserved":
+            codes.append(f"{f.size}x")  # padding: skipped, no name
+        else:  # magic / string / blob / bytes / const / odd-size counter
+            codes.append(f"{f.size}s")
+            fieldnames.append(name)
+    fmt = order + "".join(codes)
+    lines = [f'format = "{fmt}"',
+             f"fields = {fieldnames!r}",
+             f'# struct.Struct("{fmt}").unpack(record) -> ({", ".join(fieldnames)})']
+    if mixed:
+        lines.append(f"# NOTE: mixed endianness detected; struct uses one order "
+                     f"({order}). Use kaitai for per-field endianness.")
+    return "\n".join(lines)
