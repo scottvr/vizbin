@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `inspect` now reports **mode-specific readouts** when given the source file: the
+  character in `text`, RGB source bytes in `raw-rgb`, XOR operands + result in
+  `xor`, the selected bit in `bitplane`, the local entropy window in `entropy`,
+  and the delta in `delta` (plus byte value/class/nibbles for the simple modes).
+  Predecessors, windows, and phase are computed region-relative to `--base` so the
+  readout matches exactly what the projection rendered; it reads only a bounded
+  window around the offset. New `inspect` options `--k`, `--window`, `--plane`.
+  Without a source file, `inspect` stays pure offset↔pixel geometry.
+
 ## [0.2.0] - 2026-08-19
 
 ### Added

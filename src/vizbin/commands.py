@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import subprocess
@@ -279,6 +280,116 @@ def cmd_suggest(args) -> int:
 # inspect
 # ---------------------------------------------------------------------------
 
+# Class-index -> name (matches projections._byte_class ordering) and the small
+# set of control mnemonics text mode is willing to name; everything else prints
+# as its 0xHH literal.
+_CLASS_NAMES = {0: "nul", 1: "0xff", 2: "whitespace", 3: "ascii",
+                4: "control", 5: "high-bit"}
+_CTRL_NAMES = {0x00: "NUL", 0x09: "TAB", 0x0A: "LF", 0x0D: "CR", 0x7F: "DEL"}
+
+
+def _shannon_bits(window: list[int]) -> float:
+    """Shannon entropy in bits of a byte window (matches _build_entropy)."""
+    n = len(window)
+    if n == 0:
+        return 0.0
+    counts: dict[int, int] = {}
+    for b in window:
+        counts[b] = counts.get(b, 0) + 1
+    return math.log2(n) - sum(c * math.log2(c) for c in counts.values()) / n
+
+
+def _mode_readout(mode: str, path: str, offset: int, base: int, opts: dict) -> str | None:
+    """Describe byte ``offset`` in ``mode``'s own terms, matching the renderer.
+
+    Offsets are absolute file positions; ``base`` is where the render started, so
+    the projection index is ``j = offset - base`` and predecessors/windows are
+    computed region-relative (the 0x00 lead-in padding at ``j < k`` etc. matches
+    what the builder actually drew). Reads only a bounded window around ``offset``,
+    so it stays a cheap point query. Returns ``None`` when the mode has no readout.
+    """
+    j = offset - base
+    if j < 0:
+        return None
+    k = max(1, int(opts.get("k", 1)))
+    window = max(2, int(opts.get("window", 256)))
+    plane = max(0, min(7, int(opts.get("plane", 7))))
+    phase = int(opts.get("phase", 0)) % 3
+
+    if mode == "entropy":
+        back = window
+    elif mode == "xor":
+        back = k
+    elif mode == "delta":
+        back = 1
+    elif mode == "raw-rgb":
+        back = 2
+    else:
+        back = 0
+    fwd = 2 if mode == "raw-rgb" else 0
+
+    start = max(0, offset - back)
+    buf = load_region(path, start, (offset - start) + fwd + 1)
+
+    def at(a: int) -> int | None:
+        i = a - start
+        return buf[i] if 0 <= i < len(buf) else None
+
+    b = at(offset)
+    if b is None:
+        return "(offset beyond data)"
+
+    def hd(v: int) -> str:
+        return f"0x{v:02x} ({v})"
+
+    if mode == "gray":
+        return f"byte {hd(b)} -> gray {b}"
+    if mode == "byteclass":
+        return f"byte {hd(b)} -> class '{_CLASS_NAMES[projections._byte_class(b)]}'"
+    if mode == "nibble":
+        return f"byte {hd(b)} -> hi 0x{b >> 4:x}, lo 0x{b & 0x0F:x}"
+    if mode == "text":
+        if 0x20 <= b <= 0x7E:
+            ch = f"'{chr(b)}'"
+        elif b in _CTRL_NAMES:
+            ch = _CTRL_NAMES[b]
+        else:
+            ch = f"0x{b:02x}"
+        return f"byte {hd(b)} = {ch}"
+    if mode == "bitplane":
+        return f"byte {hd(b)} -> bit[{plane}] = {(b >> plane) & 1}"
+    if mode == "delta":
+        if j == 0:
+            return f"byte {hd(b)}, prev 0x00 (pad) -> |delta| {b}"
+        pb = at(offset - 1)
+        assert pb is not None  # j > 0 => predecessor is inside the read window
+        return f"byte {hd(b)}, prev@{offset - 1} {hd(pb)} -> |delta| {abs(b - pb)}"
+    if mode == "xor":
+        if j < k:
+            return f"byte {hd(b)} XOR 0x00 (pad) = {hd(b)}"
+        ob = at(offset - k)
+        assert ob is not None  # j >= k => operand is inside the read window
+        return f"byte {hd(b)} XOR @{offset - k} {hd(ob)} = {hd(b ^ ob)}"
+    if mode == "entropy":
+        total = min(j + 1, window)
+        lo = offset - total + 1
+        wb = list(buf[lo - start:offset - start + 1])  # the `total` window bytes
+        return (f"entropy {_shannon_bits(wb):.2f} bits over "
+                f"{total}-byte window [{lo}-{offset}]")
+    if mode == "raw-rgb":
+        rel = j - phase
+        if rel < 0:
+            return f"in the phase-{phase} lead-in (before the first pixel)"
+        p = rel // 3
+        ro = base + phase + 3 * p
+        r, g, bl = at(ro), at(ro + 1), at(ro + 2)
+        if r is None or g is None or bl is None:
+            return f"in the trailing bytes (incomplete pixel {p})"
+        return (f"pixel {p} -> R@{ro}=0x{r:02x} G@{ro + 1}=0x{g:02x} "
+                f"B@{ro + 2}=0x{bl:02x}")
+    return None
+
+
 def cmd_inspect(args) -> int:
     mode = projections.resolve(args.mode)
     bpp = projections.bytes_per_pixel(mode)
@@ -303,6 +414,10 @@ def cmd_inspect(args) -> int:
         else:
             chan = "" if r["channel"] is None else f", channel {r['channel']}"
             print(f"  -> pixel {r['pixel']} at x={r['x']}, y={r['y']}{chan}")
+        if args.input:
+            readout = _mode_readout(mode, args.input, args.offset, args.base, _mode_opts(args))
+            if readout:
+                print(f"  -> {readout}")
         return 0
 
     if args.x is not None and args.y is not None:
@@ -315,6 +430,10 @@ def cmd_inspect(args) -> int:
         else:
             print(f"  -> byte offset {r['offset']} (0x{r['offset']:x})"
                   f", range [{lo}, {hi}) = {hi - lo} byte(s)")
+        if args.input:
+            readout = _mode_readout(mode, args.input, r["offset"], args.base, _mode_opts(args))
+            if readout:
+                print(f"  -> {readout}")
         return 0
 
     print("give either --offset, or both --x and --y", file=sys.stderr)

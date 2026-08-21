@@ -133,7 +133,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # inspect
     i = sub.add_parser("inspect", help="map offsets <-> pixel coordinates")
-    i.add_argument("input", nargs="?", help="(unused; kept for symmetry)")
+    i.add_argument("input", nargs="?",
+                   help="optional source file; enables the mode-specific "
+                        "value/character readout")
     i.add_argument("-w", "--width", type=int, required=True)
     i.add_argument("-m", "--mode", default="gray", help=modes_help)
     i.add_argument("--offset", type=_auto_int, default=None,
@@ -141,6 +143,12 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--x", type=int, default=None)
     i.add_argument("--y", type=int, default=None)
     i.add_argument("--phase", type=int, default=0)
+    i.add_argument("--k", type=int, default=1,
+                   help="xor lag k (for the readout in xor mode)")
+    i.add_argument("--window", type=int, default=256,
+                   help="entropy window (for the readout in entropy mode)")
+    i.add_argument("--plane", type=int, default=7,
+                   help="bit index 0..7 (for the readout in bitplane mode)")
     i.add_argument("--scale", type=int, default=1,
                    help="text mode: glyph scale used at render time (cell = 8*scale px)")
     i.add_argument("--base", type=_auto_int, default=0,
