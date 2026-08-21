@@ -425,3 +425,38 @@ def render_pipeline(names: list[str], data: bytes, width: int,
     """Render a transform pipeline (see :func:`compose_pipeline`)."""
     rgb, p = compose_pipeline(names, paint=paint)(data, opts)
     return _lay_out(rgb, p, width)
+
+
+# ---------------------------------------------------------------------------
+# Channel composition: drive R/G/B each by its own transform (the parallel axis)
+# ---------------------------------------------------------------------------
+
+def compose_channels(names: list[str]) -> Callable[[bytes, dict], tuple[bytearray, int]]:
+    """Build a projection that maps up to three transforms onto R, G, B.
+
+    Unlike a pipeline (which chains transforms in *depth*), this runs each
+    transform on the *same* source bytes in parallel and packs the results into
+    the colour channels -- so ``entropy,delta,xor`` answers "where is it high-
+    entropy AND fast-changing AND periodic" in one image. It generalises
+    ``nibble`` (R=hi-nibble, G=lo-nibble, B=0). 1-3 transforms; missing channels
+    are zero.
+    """
+    if not names:
+        raise ValueError("empty --rgb")
+    if len(names) > 3:
+        raise ValueError("--rgb takes at most 3 transforms (R, G, B)")
+    steps = [TRANSFORMS[_resolve_transform_name(n)] for n in names]
+
+    def build(data: bytes, opts: dict) -> tuple[bytearray, int]:
+        chans = [bytes(step(data, opts)) for step in steps]
+        while len(chans) < 3:
+            chans.append(bytes(len(data)))  # unspecified channel -> 0
+        return _interleave(chans[0], chans[1], chans[2]), len(data)
+
+    return build
+
+
+def render_channels(names: list[str], data: bytes, width: int, **opts) -> Raster:
+    """Render a channel composition (see :func:`compose_channels`)."""
+    rgb, p = compose_channels(names)(data, opts)
+    return _lay_out(rgb, p, width)

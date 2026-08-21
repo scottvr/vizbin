@@ -97,10 +97,34 @@ def _render_pipeline(args, data: bytes, opts: dict, spec: str,
     return 0
 
 
+def _render_channels(args, data: bytes, opts: dict, spec: str) -> int:
+    names = [n.strip() for n in spec.split(",") if n.strip()]
+    width = args.width or layout.square_width(len(data))
+    try:
+        raster = projections.render_channels(names, data, width, **opts)
+    except (ValueError, KeyError) as e:
+        print(e.args[0] if e.args else str(e), file=sys.stderr)
+        return 1
+    default = out_name(args.input, width=width, mode="rgb",
+                       suffix="-".join(n.replace("-", "") for n in names))
+    out = _resolve_output(args, default)
+    bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+    print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
+          f"[rgb {'/'.join(names)}] -> {out}")
+    if not getattr(args, "no_hints", False):
+        advice = _text_advice(data)
+        if advice:
+            print(f"  hint: {advice}")
+    return 0
+
+
 def cmd_render(args) -> int:
     data = load_region(args.input, args.offset, args.length)
     opts = _mode_opts(args)
     paint = getattr(args, "paint", None)
+
+    if getattr(args, "rgb", None):
+        return _render_channels(args, data, opts, args.rgb)
 
     if getattr(args, "transform", None):
         return _render_pipeline(args, data, opts, args.transform, paint)
@@ -474,6 +498,65 @@ def _mode_readout(mode: str, path: str, offset: int, base: int, opts: dict) -> s
     return None
 
 
+def _transform_value_at(tname: str, path: str, offset: int, base: int,
+                        opts: dict) -> int | None:
+    """The output byte of a single transform at ``offset`` (region-relative to
+    ``base``), computed over a bounded window so it matches the rendered value."""
+    tkey = projections._resolve_transform_name(tname)  # ValueError/KeyError on bad
+    k = max(1, int(opts.get("k", 1)))
+    window = max(2, int(opts.get("window", 256)))
+    back = {"xor": k, "entropy": window, "delta": 1}.get(tkey, 0)
+    start = max(base, offset - back)
+    buf = load_region(path, start, (offset - start) + 1)
+    li = offset - start
+    if li < 0 or li >= len(buf):
+        return None
+    return projections.TRANSFORMS[tkey](bytes(buf), opts)[li]
+
+
+def _rgb_readout(names: list[str], path: str, offset: int, base: int,
+                 opts: dict) -> str | None:
+    """`R(entropy)=0x.. G(delta)=0x.. B(xor)=0x..` for a `--rgb` composition."""
+    labels = ("R", "G", "B")
+    parts = []
+    for i, n in enumerate(names[:3]):
+        try:
+            v = _transform_value_at(n, path, offset, base, opts)
+        except (ValueError, KeyError):
+            return None
+        if v is None:
+            return None
+        parts.append(f"{labels[i]}({n})=0x{v:02x} ({v})")
+    return "  ".join(parts)
+
+
+def _inspect_rgb(args) -> int:
+    """Inspect a `--rgb` channel composition: geometry (1:1) + per-channel values."""
+    names = [n.strip() for n in args.rgb.split(",") if n.strip()]
+    omap = layout.OffsetMap(width=args.width, bpp=1, base=args.base)
+    tag = "/".join(names)
+    if args.offset is not None:
+        off = args.offset
+        r = omap.offset_to_pixel(off)
+        if "error" in r:
+            print(r["error"], file=sys.stderr)
+            return 1
+        print(f"offset 0x{off:x} ({off}) [rgb {tag}, w={args.width}]")
+        print(f"  -> pixel {r['pixel']} at x={r['x']}, y={r['y']}")
+    elif args.x is not None and args.y is not None:
+        off = omap.pixel_to_offset(args.x, args.y)["offset"]
+        print(f"pixel x={args.x}, y={args.y} [rgb {tag}, w={args.width}]")
+        print(f"  -> byte offset {off} (0x{off:x})")
+    else:
+        print("give either --offset, or both --x and --y", file=sys.stderr)
+        return 1
+    if args.input:
+        readout = _rgb_readout(names, args.input, off, args.base, _mode_opts(args))
+        if readout:
+            print(f"  -> {readout}")
+    return 0
+
+
 def _maybe_ascii_hint(args, modes: list[str], offset: int) -> None:
     """Print the 'psst, looks like text' hint unless suppressed or redundant."""
     if (getattr(args, "input", None) and not getattr(args, "no_hints", False)
@@ -531,6 +614,9 @@ def _inspect_multi(modes: list[str], args) -> int:
 
 
 def cmd_inspect(args) -> int:
+    if getattr(args, "rgb", None):
+        return _inspect_rgb(args)
+
     raw_modes = getattr(args, "modes", None)
     if raw_modes:
         modes = [projections.resolve(m) for m in raw_modes.split(",") if m.strip()]

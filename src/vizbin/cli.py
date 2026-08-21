@@ -90,6 +90,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--paint", default=None,
                    help="colorizer axis: gray/magma/palette/nibble. Overrides the "
                         "mode's or pipeline's default colour.")
+    r.add_argument("--rgb", default=None,
+                   help="channel composition: up to 3 transforms driving R,G,B "
+                        "(e.g. entropy,delta,xor). Its own colouring; overrides -m/-t.")
     _add_mode_opts(r)
     _add_region(r)
     r.set_defaults(func=commands.cmd_render)
@@ -162,6 +165,9 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--modes", default=None,
                    help="comma list of modes to read out together for one "
                         "coordinate (e.g. raw-rgb,text); pair with a source file")
+    i.add_argument("--rgb", default=None,
+                   help="channel-composition transforms (R,G,B) to read out at "
+                        "the offset, matching a `render --rgb` image")
     i.add_argument("--offset", type=_auto_int, default=None,
                    help="byte offset to locate (accepts 0x..)")
     i.add_argument("--x", type=int, default=None)
