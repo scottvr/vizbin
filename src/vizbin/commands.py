@@ -292,9 +292,10 @@ def cmd_suggest(args) -> int:
         print(f"Suggested widths for {args.input}:")
         for s in suggestions:
             print(f"  {s.width:<7} {s.family}")
-    advice = _text_advice(data)
-    if advice:
-        print(f"\nhint: {advice}")
+    if not getattr(args, "no_hints", False):
+        advice = _text_advice(data)
+        if advice:
+            print(f"\nhint: {advice}")
     return 0
 
 

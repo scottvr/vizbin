@@ -50,8 +50,18 @@ _MODES = projections.mode_names()
 
 
 def build_parser() -> argparse.ArgumentParser:
+    # A genuinely global flag: shared via `parents=` on the top-level parser AND
+    # every subparser so it parses wherever it lands on the command line.
+    # default=SUPPRESS keeps a subparser from resetting a value set before the
+    # subcommand, and keeps `no_hints` absent from the namespace unless passed.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--no-hints", dest="no_hints", action="store_true",
+                        default=argparse.SUPPRESS,
+                        help="Disable printing of mode hints")
+
     parser = argparse.ArgumentParser(
         prog="vizbin",
+        parents=[common],
         description="Render arbitrary bytes as images so hidden structure "
                     "becomes visible. Take a blob, pretend it is an image, "
                     "vary the lie until the truth starts to show.",
@@ -60,23 +70,24 @@ def build_parser() -> argparse.ArgumentParser:
                         version=f"vizbin {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    def add(name: str, **kw):
+        return sub.add_parser(name, parents=[common], **kw)
+
     modes_help = "projection mode: " + ", ".join(_MODES)
 
     # render
-    r = sub.add_parser("render", help="render one image")
+    r = add("render", help="render one image")
     r.add_argument("input")
     r.add_argument("-o", "--output")
     r.add_argument("-w", "--width", type=int, default=None,
                    help="image width in pixels (default: square-ish)")
     r.add_argument("-m", "--mode", default="gray", help=modes_help)
-    r.add_argument("--no-hints", dest="no_hints", action="store_true",
-                   help="suppress the advisory 'looks like text' hint")
     _add_mode_opts(r)
     _add_region(r)
     r.set_defaults(func=commands.cmd_render)
 
     # sweep
-    s = sub.add_parser("sweep", help="render several widths, one file each")
+    s = add("sweep", help="render several widths, one file each")
     s.add_argument("input")
     s.add_argument("-o", "--output", help="only valid with a single width")
     s.add_argument("--outdir", help="directory for output files")
@@ -89,7 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=commands.cmd_sweep)
 
     # contact
-    c = sub.add_parser("contact", help="build a labelled contact sheet")
+    c = add("contact", help="build a labelled contact sheet")
     c.add_argument("input")
     c.add_argument("-o", "--output")
     c.add_argument("--widths", default="common",
@@ -108,7 +119,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.set_defaults(func=commands.cmd_contact)
 
     # animate
-    a = sub.add_parser("animate", help="animate a width sweep")
+    a = add("animate", help="animate a width sweep")
     a.add_argument("input")
     a.add_argument("-o", "--output")
     a.add_argument("--from", dest="frm", type=int, default=64)
@@ -126,7 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     a.set_defaults(func=commands.cmd_animate)
 
     # suggest
-    g = sub.add_parser("suggest", help="suggest informative widths")
+    g = add("suggest", help="suggest informative widths")
     g.add_argument("input")
     g.add_argument("--top", type=int, default=12)
     g.add_argument("-v", "--verbose", action="store_true")
@@ -134,7 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.set_defaults(func=commands.cmd_suggest)
 
     # inspect
-    i = sub.add_parser("inspect", help="map offsets <-> pixel coordinates")
+    i = add("inspect", help="map offsets <-> pixel coordinates")
     i.add_argument("input", nargs="?",
                    help="optional source file; enables the mode-specific "
                         "value/character readout")
@@ -158,12 +169,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="text mode: glyph scale used at render time (cell = 8*scale px)")
     i.add_argument("--base", type=_auto_int, default=0,
                    help="base offset the render started at (render --offset)")
-    i.add_argument("--no-hints", dest="no_hints", action="store_true",
-                   help="suppress the advisory 'looks like text' hint")
     i.set_defaults(func=commands.cmd_inspect)
 
     # bmp
-    b = sub.add_parser("bmp", help="reversible payload-as-pixels BMP")
+    b = add("bmp", help="reversible payload-as-pixels BMP")
     b.add_argument("input")
     b.add_argument("output", nargs="?")
     b.add_argument("-w", "--width", type=int, default=None,
@@ -172,7 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     b.set_defaults(func=commands.cmd_bmp)
 
     # unbmp
-    u = sub.add_parser("unbmp", help="recover payload from a vizbin bmp")
+    u = add("unbmp", help="recover payload from a vizbin bmp")
     u.add_argument("input")
     u.add_argument("-o", "--output",
                    help="write payload here (default: stdout)")

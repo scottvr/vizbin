@@ -22,7 +22,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Cross-mode **ASCII advisory** (default on, `--no-hints` to silence): when you
   view a non-`text` mode but the bytes look like text, `inspect` whispers what the
   surrounding bytes spell and `render` nudges toward `-m text`. Advisory only —
-  vizbin never switches mode for you.
+  vizbin never switches mode for you. `--no-hints` is a **global flag**: it parses
+  anywhere on the command line, appears once in the top-level `--help`, and also
+  silences the `suggest` hint.
 
 ## [0.2.0] - 2026-08-19
 

@@ -61,3 +61,19 @@ def test_inspect_no_psst_when_text_mode_present(tmp_path, capsys):
     # text already shows the character, so the advisory would be redundant
     main(["inspect", _printable(tmp_path), "-w", "64", "--modes", "gray,text", "--offset", "20"])
     assert "psst:" not in capsys.readouterr().out
+
+
+# --- --no-hints is a global flag (any position, all hint surfaces) ---------
+
+def test_no_hints_global_before_subcommand(tmp_path, capsys):
+    p, o = _printable(tmp_path), str(tmp_path / "o.bmp")
+    main(["--no-hints", "render", p, "-m", "raw-rgb", "-o", o])
+    assert "hint:" not in capsys.readouterr().out
+
+
+def test_no_hints_suppresses_suggest_and_default_is_on(tmp_path, capsys):
+    p = _printable(tmp_path)
+    main(["suggest", p, "--no-hints"])
+    assert "hint:" not in capsys.readouterr().out
+    main(["suggest", p])                       # default on
+    assert "hint:" in capsys.readouterr().out
