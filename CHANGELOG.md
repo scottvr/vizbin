@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (with endianness), printable **strings**, and high-entropy **blobs**. Reports
   honestly when there's no strong record structure. Closes the loop from "I can
   *see* records" to "here's a machine-readable guess at their layout."
+- **`infer` accuracy tuning** — constant runs now split at the zero↔nonzero
+  boundary (reserved padding no longer merges with a string's fixed prefix);
+  counters recover a fixed non-zero high byte (e.g. a big-endian `0x01xxxxxx`);
+  and a periodic stride with *no* constant columns is rejected as
+  variable-length text rather than reported as fake records.
 - **`infer` export formats** — `--json` (structured, for pipelines), `--format
   kaitai` (a Kaitai Struct `.ksy` stub with per-field endianness and fixed-magic
   `contents`), and `--format struct` (a Python `struct` format + field names that
