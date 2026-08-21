@@ -65,9 +65,9 @@ vizbin render foo.bin -w 128 -m byteclass
 vizbin render foo.bin -w 128 -m entropy --window 512
 ```
 
-New to it? Start with the [exploration field guide](docs/EXPLORING.md) — a
-suggestive "look for / if this then try that" walkthrough for poking at a blob
-(or an image) you don't understand yet.
+New to it? Start with the [exploration guide](docs/QUICKSTART-TUTORIAL.md) — a
+guided tour of small experiments that show what vizbin can see, and how changing
+one assumption changes the picture.
 
 Window a region without extracting it first (great for reversing):
 
