@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-21
+
 ### Added
 - **Exposed the two projection axes.** A mode is a *transform* (`-t`/`--transform`,
   also `--pipe`) plus a *colorizer* (`--paint`); the named modes are now just
@@ -21,6 +23,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   *depth*. `inspect --rgb ...` reports the three channel values at an offset,
   matching the rendered pixel exactly. New API: `projections.compose_channels` /
   `render_channels`.
+
+### Docs
+- New guided-tour tutorial (`docs/QUICKSTART-TUTORIAL.md`), replacing the old
+  exploration field guide; README's intro link now points to it.
 
 ## [0.3.0] - 2026-08-21
 
@@ -93,7 +99,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `raw-rgb`, `byteclass`, `entropy`, `delta`, `xor`, `bitplane`, `nibble`.
   Pure-stdlib BMP writer and animated-GIF encoder.
 
-[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/scottvr/vizbin/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/scottvr/vizbin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/scottvr/vizbin/releases/tag/v0.2.0
 [0.1.0]: https://github.com/scottvr/vizbin/releases/tag/v0.1.0
