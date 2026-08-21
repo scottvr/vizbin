@@ -677,6 +677,27 @@ def cmd_inspect(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# infer (draft record/field layout)
+# ---------------------------------------------------------------------------
+
+def cmd_infer(args) -> int:
+    from vizbin import infer
+    data = load_region(args.input, args.offset, args.length)
+    stride, why = infer.select_stride(data, args.stride)
+    if stride is None:
+        print(f"{args.input}: {why}", file=sys.stderr)
+        return 1
+    fields, n_rec = infer.infer_fields(data, stride)
+    if not fields:
+        print(f"{args.input}: stride {stride} ({why}), but too few records "
+              f"to profile", file=sys.stderr)
+        return 1
+    print(f"{args.input}:")
+    print(infer.format_report(data, stride, why, fields, n_rec))
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # bmp / unbmp (reversible payload mode)
 # ---------------------------------------------------------------------------
 

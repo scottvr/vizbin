@@ -51,6 +51,7 @@ vizbin
 |-- animate    a width sweep as an animated GIF (or mp4 via ffmpeg)
 |-- suggest    candidate widths, ranked by row coherence
 |-- inspect    map between byte offsets and pixel coordinates
+|-- infer      draft a record/field layout from repeating structure
 |-- bmp        reversible "payload as pixels" BMP
 `-- unbmp      recover the payload from a bmp
 ```
@@ -245,6 +246,38 @@ vizbin inspect archive.tar -w 64 --modes raw-rgb,text,gray --offset 260
 #     [text   ] byte 0x61 (97) = 'a'
 #     [gray   ] byte 0x61 (97) -> gray 97
 ```
+
+### infer (draft a record layout)
+
+Where `suggest` finds the *stride* and the picture shows you records line up,
+`infer` takes the next step — it **guesses the fields**. It detects the record
+period by byte-autocorrelation, reshapes the file into a record grid, profiles
+each byte column, and reports a draft layout with per-field evidence and
+confidence (it's a starting point you verify, not ground truth):
+
+```sh
+vizbin infer firmware.bin              # auto-detect the record stride
+vizbin infer logs.bin --stride 22      # or force it
+```
+```
+logs.bin:
+stride 22 bytes (period @ 22 (autocorr 0.82, 64% constant columns)); 1000 complete records
+
+   offset  size  kind      conf  evidence
+  -------  ----  --------- ----  -----------------------------------------
+  0x0000     4  magic     1.00  constant "LOG1"
+  0x0004     4  counter   1.00  monotonic 32-bit int (little-endian), e.g. 0..999
+  0x0008     2  bytes     0.40  low-entropy varying (~2.0 bits/byte)
+  0x000a     8  string    1.00  printable ASCII across records
+  0x0012     4  blob      0.71  high entropy ~7.4 bits/byte (hash/compressed?)
+```
+
+It recognizes constant **magic**/reserved fields, monotonic **counters** (with
+endianness), printable **strings**, and high-entropy **blobs**. It reports
+honestly when there's no strong record structure (e.g. random or non-record
+data), and small multi-byte counters are shown at their *observed* width (a
+counter that never exceeds 65535 reads as `u16`). Adjacent constant fields can
+merge — the evidence (hex/ASCII) is shown so you can split them by eye.
 
 ### bmp / unbmp (reversible payload mode)
 
