@@ -97,6 +97,32 @@ class Raster:
             cx += (FONT_W + 1) * scale
 
 
+def to_ansi_halfblocks(raster: "Raster") -> str:
+    """Render an RGB raster to a terminal string using 24-bit ANSI colour and
+    Unicode upper-half-block glyphs, so each character cell stacks two pixels
+    (foreground = top pixel, background = bottom). No file, no image viewer.
+    """
+    w, h, rgb = raster.width, raster.height, raster.rgb
+    up = "▀"  # ▀ upper half block
+    lines = []
+    for y in range(0, h, 2):
+        top = y * w * 3
+        has_bottom = y + 1 < h
+        bot = (y + 1) * w * 3
+        cells = []
+        for x in range(w):
+            t = top + x * 3
+            fg = f"\x1b[38;2;{rgb[t]};{rgb[t + 1]};{rgb[t + 2]}m"
+            if has_bottom:
+                b = bot + x * 3
+                bgc = f"\x1b[48;2;{rgb[b]};{rgb[b + 1]};{rgb[b + 2]}m"
+            else:
+                bgc = "\x1b[49m"  # default background for the dangling last row
+            cells.append(fg + bgc + up)
+        lines.append("".join(cells) + "\x1b[0m")
+    return "\n".join(lines) + "\n"
+
+
 # ---------------------------------------------------------------------------
 # Colormaps
 # ---------------------------------------------------------------------------

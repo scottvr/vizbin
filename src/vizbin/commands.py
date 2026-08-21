@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from vizbin import bmp, gif, layout, projections
-from vizbin.canvas import ContactStyle, Raster, contact_sheet
+from vizbin.canvas import ContactStyle, Raster, contact_sheet, to_ansi_halfblocks
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +72,36 @@ def _default_width(mode: str, data: bytes, phase: int) -> int:
 # render
 # ---------------------------------------------------------------------------
 
+def _term_dims() -> tuple[int, int]:
+    """Terminal size in *pixels* for half-block rendering: full columns wide,
+    two pixels per text row (leaving a line for the status)."""
+    try:
+        cols, rows = os.get_terminal_size()
+    except OSError:
+        cols, rows = 80, 24
+    return max(1, cols), max(2, (rows - 1) * 2)
+
+
+def _emit_render(args, data: bytes, raster: Raster, label: str,
+                 default_name: str, want_hint: bool = True) -> int:
+    """Output a rendered raster: to the terminal (--term) or a BMP file."""
+    if getattr(args, "term", False):
+        shown = raster.fit(*_term_dims())
+        sys.stdout.write(to_ansi_halfblocks(shown))
+        print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
+              f"[{label}] -> terminal ({shown.width}x{shown.height})")
+    else:
+        out = _resolve_output(args, default_name)
+        bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+        print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
+              f"[{label}] -> {out}")
+    if want_hint and not getattr(args, "no_hints", False):
+        advice = _text_advice(data)
+        if advice:
+            print(f"  hint: {advice}")
+    return 0
+
+
 def _render_pipeline(args, data: bytes, opts: dict, spec: str,
                      paint: str | None = None) -> int:
     names = [m.strip() for m in spec.split(",") if m.strip()]
@@ -85,16 +115,8 @@ def _render_pipeline(args, data: bytes, opts: dict, spec: str,
     if paint:
         suffix += f".{paint}"
     default = out_name(args.input, width=width, mode="pipe", suffix=suffix)
-    out = _resolve_output(args, default)
-    bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
-    label = ">".join(names) + (f" +{paint}" if paint else "")
-    print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
-          f"[pipe {label}] -> {out}")
-    if not getattr(args, "no_hints", False):
-        advice = _text_advice(data)
-        if advice:
-            print(f"  hint: {advice}")
-    return 0
+    label = "pipe " + ">".join(names) + (f" +{paint}" if paint else "")
+    return _emit_render(args, data, raster, label, default)
 
 
 def _render_channels(args, data: bytes, opts: dict, spec: str) -> int:
@@ -107,15 +129,7 @@ def _render_channels(args, data: bytes, opts: dict, spec: str) -> int:
         return 1
     default = out_name(args.input, width=width, mode="rgb",
                        suffix="-".join(n.replace("-", "") for n in names))
-    out = _resolve_output(args, default)
-    bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
-    print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
-          f"[rgb {'/'.join(names)}] -> {out}")
-    if not getattr(args, "no_hints", False):
-        advice = _text_advice(data)
-        if advice:
-            print(f"  hint: {advice}")
-    return 0
+    return _emit_render(args, data, raster, "rgb " + "/".join(names), default)
 
 
 def cmd_render(args) -> int:
@@ -137,15 +151,7 @@ def cmd_render(args) -> int:
     raster = projections.render(mode, data, width, **opts)
     phase = opts["phase"] if mode == "raw-rgb" else None
     default = out_name(args.input, width=width, mode=mode, phase=phase)
-    out = _resolve_output(args, default)
-    bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
-    print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
-          f"[{mode}] -> {out}")
-    if mode != "text" and not getattr(args, "no_hints", False):
-        advice = _text_advice(data)
-        if advice:
-            print(f"  hint: {advice}")
-    return 0
+    return _emit_render(args, data, raster, mode, default, want_hint=(mode != "text"))
 
 
 # ---------------------------------------------------------------------------
