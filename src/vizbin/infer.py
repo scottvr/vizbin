@@ -18,8 +18,6 @@ from collections import Counter
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 
-from vizbin import layout
-
 _WS = {0x09, 0x0A, 0x0D}
 
 

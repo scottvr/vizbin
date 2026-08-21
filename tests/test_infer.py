@@ -3,8 +3,6 @@
 import random
 import struct
 
-import pytest
-
 from vizbin import infer
 
 
