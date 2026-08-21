@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Internal
+- Refactored the projection engine into composable **transforms** (bytes→bytes)
+  and **colorizers** (bytes→pixels): each 1:1 mode is now a `(transform,
+  colorizer)` pair (e.g. `xor` = xor-transform + gray-colorizer, `byteclass` =
+  class-index + palette). Output is byte-identical (golden-hash guarded). No
+  user-visible change; this is the groundwork for chaining/overlaying modes.
+
 ### Added
 - `inspect` now reports **mode-specific readouts** when given the source file: the
   character in `text`, RGB source bytes in `raw-rgb`, XOR operands + result in
