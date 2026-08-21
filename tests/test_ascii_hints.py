@@ -1,7 +1,7 @@
 """Slice 2: the cross-mode 'looks like text' advisory (default on, --no-hints)."""
 
 from vizbin.cli import main
-from vizbin.commands import _ascii_hint
+from vizbin.commands import _ascii_hint, _longest_run
 
 
 def _printable(tmp_path):
@@ -77,3 +77,32 @@ def test_no_hints_suppresses_suggest_and_default_is_on(tmp_path, capsys):
     assert "hint:" not in capsys.readouterr().out
     main(["suggest", p])                       # default on
     assert "hint:" in capsys.readouterr().out
+
+
+# --- run-based gate + -n / --min-run (strings-like) ------------------------
+
+def _embedded(tmp_path):
+    # a 10-char string buried in NUL padding: low fraction, long printable run
+    p = tmp_path / "embed.bin"
+    p.write_bytes(bytes(20) + b"MAGICSTRNG" + bytes(20))
+    return str(p)
+
+
+def test_longest_run():
+    assert _longest_run(b"\x00abc\x00abcdef\x00") == 6
+    assert _longest_run(bytes(10)) == 0
+    assert _longest_run(b"hello") == 5
+
+
+def test_run_gate_catches_string_in_padding(tmp_path):
+    p = _embedded(tmp_path)  # window fraction is low, but a 10-char run is present
+    assert _ascii_hint(p, 25, min_run=6) is not None
+    assert _ascii_hint(p, 25, min_run=11) is None  # run(10) < 11 and fraction < 0.75
+
+
+def test_cli_min_run_flag(tmp_path, capsys):
+    p = _embedded(tmp_path)
+    main(["inspect", p, "-w", "64", "-m", "gray", "--offset", "25"])   # default 6
+    assert "psst:" in capsys.readouterr().out
+    main(["inspect", p, "-w", "64", "-m", "gray", "--offset", "25", "-n", "11"])
+    assert "psst:" not in capsys.readouterr().out

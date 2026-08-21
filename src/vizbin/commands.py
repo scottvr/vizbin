@@ -262,19 +262,36 @@ def _text_advice(data: bytes) -> str | None:
     return None
 
 
-def _ascii_hint(path: str, offset: int, radius: int = 16) -> str | None:
+def _longest_run(buf: bytes) -> int:
+    """Length of the longest run of printable glyphs (0x20..0x7E) in ``buf``."""
+    longest = cur = 0
+    for x in buf:
+        if 0x20 <= x <= 0x7E:
+            cur += 1
+            if cur > longest:
+                longest = cur
+        else:
+            cur = 0
+    return longest
+
+
+def _ascii_hint(path: str, offset: int, radius: int = 16,
+                min_run: int = 6) -> str | None:
     """A 'psst, these look like text' hint for the bytes around ``offset``.
 
-    Advisory only. Fires when the local window is mostly printable, rendering it
-    as the string it spells (non-printables as ``.``) -- the "you asked for
-    colours, but those are hex for a word" nudge. Returns ``None`` otherwise.
+    Advisory only. Fires on either signal: the window is mostly printable
+    (fraction >= 0.75, "this region is text"), OR it contains a printable run of
+    at least ``min_run`` glyphs ("a string is hiding in here" -- like ``strings
+    -n``, catching magic numbers/filenames embedded in binary/padding). The
+    window is rendered as the string it spells, non-printables as ``.``. Returns
+    ``None`` otherwise.
     """
     start = max(0, offset - radius)
     buf = load_region(path, start, 2 * radius + 1)
     if not buf:
         return None
     printable = sum(1 for x in buf if 0x20 <= x <= 0x7E or x in (0x09, 0x0A, 0x0D))
-    if printable / len(buf) < 0.75:
+    if printable / len(buf) < 0.75 and _longest_run(buf) < min_run:
         return None
     rendered = "".join(chr(x) if 0x20 <= x <= 0x7E else "." for x in buf)
     return f'psst: bytes [{start}-{start + len(buf) - 1}] look like text: "{rendered}"'
@@ -429,7 +446,8 @@ def _maybe_ascii_hint(args, modes: list[str], offset: int) -> None:
     """Print the 'psst, looks like text' hint unless suppressed or redundant."""
     if (getattr(args, "input", None) and not getattr(args, "no_hints", False)
             and "text" not in modes):
-        hint = _ascii_hint(args.input, offset)
+        hint = _ascii_hint(args.input, offset,
+                           min_run=max(1, getattr(args, "min_run", 6) or 6))
         if hint:
             print(f"  {hint}")
 
