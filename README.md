@@ -91,8 +91,9 @@ vizbin render mystery.bin --offset 0x12000 --length 65536 -w 256
 ```
 
 Don't know the offset? **Find it.** `--find` (or `--find-hex`) locates a pattern
-and centres the render window on it — so you can jump straight to an interesting
-string without hunting for its address:
+and windows the render around it (the match sits at the centre of the byte
+window) — so you can jump straight to an interesting string without hunting for
+its address:
 
 ```sh
 vizbin render firmware.bin -m text --find "https://" --length 4096

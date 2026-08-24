@@ -47,10 +47,15 @@ image, four hypotheses, for quick triage.
 <img src="images/render-text.png" width="720" alt="text mode render of a tar of source files">
 
 `vizbin render src.tar -m text --find "def to_dict"` renders a window of a tar of
-vizbin's own source: printable ASCII becomes readable glyphs (you can *read* the
-`to_dict`/`to_json` methods), while NUL padding and the `ustar` header fields stay
-as coloured tiles — so you see the strings *and* the scaffolding around them.
-`--find` centres the view on the pattern, so no offset-hunting.
+vizbin's own source. **Printable ASCII** — the source code *and* the tar's own
+text fields (filenames, the `ustar` magic, the octal metadata) — renders as
+readable glyphs; you can literally read the `to_dict`/`to_json` methods. The
+**non-printable** bytes become the coloured tiles: cyan for the whitespace and
+newlines woven between fields and lines, the odd red/purple fleck for the control
+and high-bit bytes of the binary extended-attribute blobs, and NUL padding
+receding into the near-black background. So you read the strings *and* see the
+structural bytes threaded through them. `--find` windows the render on the pattern
+(no offset to hunt for).
 
 ## diff — what changed between two binaries
 
