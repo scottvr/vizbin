@@ -406,6 +406,11 @@ vizbin diff firmware_v1.bin firmware_v2.bin --term        # or -o diff.bmp
 vizbin diff a.bin b.bin --json                            # machine-readable
 ```
 
+Matching is block-level, so an insertion is re-synced only when the tail stays
+block-aligned. If an odd-sized insertion smears the diff into many `replace`
+regions, set `--block` to a size that divides the shift (or a small value like
+`--block 4`) to recover the clean picture.
+
 ### bmp / unbmp (reversible payload mode)
 
 ```sh
