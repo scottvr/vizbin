@@ -53,6 +53,7 @@ vizbin
 |-- inspect    map between byte offsets and pixel coordinates
 |-- infer      draft a record/field layout from repeating structure
 |-- profile    structural fingerprint (entropy, byte classes, regions)
+|-- diff       structural/visual diff of two binaries
 |-- bmp        reversible "payload as pixels" BMP
 `-- unbmp      recover the payload from a bmp
 ```
@@ -364,6 +365,32 @@ terminal, something interactive visualizers can't do:
 # which files stand out? cluster by their region composition
 vizbin profile corpus/*.bin --json | \
   jq -r '[(.regions|map(.kind)|unique|join("+")), .source] | @tsv'
+```
+
+### diff (structural / visual binary diff)
+
+`diff` compares two binaries at the **block** level (via `difflib`), so it
+survives insertions and deletions the way `cmp` can't — a few bytes added near
+the top of `firmware_v2` won't paint the whole rest of the file as "changed":
+
+```sh
+vizbin diff firmware_v1.bin firmware_v2.bin
+```
+```
+firmware_v1.bin (8192 bytes) vs firmware_v2.bin (8208 bytes)
+  99.0% identical (block 8); 2 changed region(s)
+    replace  A:0x00000400-0x00000440  B:0x00000400-0x00000440  (64 bytes)
+    insert   A:                  —  B:0x00001000-0x00001010  (+16 bytes)
+```
+
+It reports `replace` (changed in place), `insert` (added in v2), and `delete`
+(removed from v1) with offsets in **both** files. Add `-o diff.bmp` or `--term`
+for a **diff image** over the new file — identical bytes dimmed, changes lit
+(red = replaced, green = inserted) — so the changed regions jump out at a glance:
+
+```sh
+vizbin diff firmware_v1.bin firmware_v2.bin --term        # or -o diff.bmp
+vizbin diff a.bin b.bin --json                            # machine-readable
 ```
 
 ### bmp / unbmp (reversible payload mode)

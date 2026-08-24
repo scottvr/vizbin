@@ -191,6 +191,21 @@ def build_parser() -> argparse.ArgumentParser:
                         "(like strings -n; default 6)")
     i.set_defaults(func=commands.cmd_inspect)
 
+    # diff
+    d = add("diff", help="structural/visual diff of two binaries")
+    d.add_argument("a")
+    d.add_argument("b")
+    d.add_argument("--block", type=int, default=None,
+                   help="block size for matching (default: scaled to file size)")
+    d.add_argument("-w", "--width", type=int, default=None,
+                   help="diff-image width (with -o/--term)")
+    d.add_argument("-o", "--output", help="write a diff image (BMP)")
+    d.add_argument("--term", action="store_true",
+                   help="render the diff image into the terminal")
+    d.add_argument("--json", action="store_true", help="emit the diff as JSON")
+    _add_region(d)
+    d.set_defaults(func=commands.cmd_diff)
+
     # profile
     pr = add("profile", help="structural fingerprint (entropy, classes, regions)")
     pr.add_argument("input", nargs="+", help="one or more files to fingerprint")

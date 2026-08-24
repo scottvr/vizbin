@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`diff`** — structural/visual diff of two binaries. Block-level matching (via
+  `difflib`) survives insertions/deletions — a mid-file insertion doesn't smear
+  the whole tail as "changed" the way `cmp` would. Reports `replace`/`insert`/
+  `delete` regions with offsets in both files and a similarity score; `-o`/`--term`
+  render a **diff image** (identical bytes dimmed, replaced red, inserted green);
+  `--json` for machine output.
 - **`profile`** — structural fingerprint of a blob: overall entropy, byte-class
   mix, `head` magic bytes, a coarse entropy-band **region** map (which surfaces
   *heterogeneous* blobs), a fixed-length `entropy_profile` vector, and an optional
