@@ -683,6 +683,35 @@ def cmd_inspect(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# diff (structural / visual binary diff)
+# ---------------------------------------------------------------------------
+
+def cmd_diff(args) -> int:
+    from vizbin import bindiff
+    a = load_region(args.a, args.offset, args.length)
+    b = load_region(args.b, args.offset, args.length)
+    result = bindiff.diff(a, b, block=args.block)
+
+    if args.json:
+        print(bindiff.to_json(result, args.a, args.b))
+    else:
+        print(bindiff.format_report(result, args.a, args.b))
+
+    if args.output or getattr(args, "term", False):
+        width = args.width or layout.square_width(len(b))
+        raster = bindiff.render_diff(b, result, width)
+        if getattr(args, "term", False):
+            shown = raster.fit(*_term_dims())
+            sys.stdout.write(to_ansi_halfblocks(shown))
+            print(f"  diff image -> terminal ({shown.width}x{shown.height})")
+        else:
+            out = args.output
+            bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+            print(f"  diff image -> {raster.width}x{raster.height} -> {out}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # profile (structural fingerprint)
 # ---------------------------------------------------------------------------
 
