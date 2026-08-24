@@ -34,31 +34,40 @@ $VB profile "$SD/mixed.bin"
 
 # --- projections & composition ---------------------------------------------
 
-section "render at the true 188-byte stride"
+# --- image artifacts (files) ----------------------------------------------
+
+section "render at the true 188-byte stride (BMP)"
 $VB render "$SD/records.bin" -w 188 -m gray -o "$OUT/records.w188.gray.bmp"
 
-section "contact sheet: four projections of the mixed blob"
+section "SVG output: crisp, scalable, browser-ready (-o *.svg)"
+$VB render "$SD/mixed.bin" -m byteclass -w 128 -o "$OUT/mixed.byteclass.svg"
+
+section "contact sheet: four projections side by side (BMP)"
 $VB contact "$SD/mixed.bin" --modes gray,byteclass,entropy,delta -w 128 \
     -o "$OUT/mixed.contact.bmp"
 
-section "compose axes: any transform x any colorizer"
-$VB render "$SD/mixed.bin" -t xor --paint magma           -o "$OUT/mixed.xor-magma.bmp"
-$VB render "$SD/mixed.bin" -t xor,entropy --paint palette -o "$OUT/mixed.pipe.bmp"  # order matters
-
-section "--rgb: three structural measures (entropy/delta/xor) in one image"
-$VB render "$SD/mixed.bin" --rgb entropy,delta,xor -w 128 -o "$OUT/mixed.rgb.bmp"
-
-section "text mode: readable ASCII glyphs, non-text as class tiles"
-$VB render "$SD/hello.txt" -m text -w 48 -o "$OUT/hello.text.bmp"
-
-section "width-sweep animation around the record boundary"
+section "width-sweep animation around the record boundary (GIF)"
 $VB animate "$SD/records.bin" --widths 180,184,188,192,196 -m gray \
     -o "$OUT/records.sweep.gif"
 
-# --- pinpoint & inspect ----------------------------------------------------
+# --- the colourful part: rendered straight into the terminal ---------------
 
-section "find: window the render on a string (no offset-hunting)"
-$VB render "$SD/hello.txt" -m text --find "pretend" --length 512 -o "$OUT/hello.find.bmp"
+section "entropy, in the terminal (no viewer)"
+$VB render "$SD/mixed.bin" -m entropy --term
+
+section "byte classes, in the terminal"
+$VB render "$SD/mixed.bin" -m byteclass --term
+
+section "--rgb: entropy/delta/xor as R/G/B, in the terminal"
+$VB render "$SD/mixed.bin" --rgb entropy,delta,xor --term
+
+section "compose: the entropy of the xor stream, magma-painted"
+$VB render "$SD/mixed.bin" -t xor,entropy --paint magma --term
+
+section "text mode + find: window on 'CONFIG', readable glyphs in the terminal"
+$VB render "$SD/mixed.bin" -m text --find "CONFIG" --length 1024 --term
+
+# --- pinpoint & inspect ----------------------------------------------------
 
 section "inspect: what one coordinate means, across modes"
 $VB inspect "$SD/records.bin" -w 188 --modes gray,byteclass --offset 1
@@ -79,16 +88,15 @@ PY
 # --block 16 keeps the tail block-aligned across the insertion, so the diff stays
 # clean (one replace + one insert) instead of smearing -- see docs for the caveat.
 $VB diff "$SD/records.bin" "$OUT/records_v2.bin" --block 16
+echo "  (the diff image, in the terminal:)"
+$VB diff "$SD/records.bin" "$OUT/records_v2.bin" --block 16 --term
 
-# --- reversible + terminal -------------------------------------------------
+# --- reversible -----------------------------------------------------------
 
 section "reversible payload BMP round-trip"
 $VB bmp "$SD/random.bin" "$OUT/random.bmp"
 $VB unbmp "$OUT/random.bmp" -o "$OUT/random.recovered.bin"
 cmp "$SD/random.bin" "$OUT/random.recovered.bin" && echo "round-trip OK (byte-identical)"
-
-section "--term: render straight into the terminal (no image viewer)"
-$VB render "$SD/mixed.bin" --rgb entropy,delta,xor --term
 
 echo
 echo "Done. Images in $OUT/"
