@@ -191,6 +191,16 @@ def build_parser() -> argparse.ArgumentParser:
                         "(like strings -n; default 6)")
     i.set_defaults(func=commands.cmd_inspect)
 
+    # profile
+    pr = add("profile", help="structural fingerprint (entropy, classes, regions)")
+    pr.add_argument("input", nargs="+", help="one or more files to fingerprint")
+    pr.add_argument("--json", action="store_true",
+                    help="emit JSONL (one JSON object per file) for corpus tooling")
+    pr.add_argument("--no-stride", dest="no_stride", action="store_true",
+                    help="skip record-stride detection (faster on large corpora)")
+    _add_region(pr)
+    pr.set_defaults(func=commands.cmd_profile)
+
     # infer
     n = add("infer", help="infer a draft record/field layout")
     n.add_argument("input")
