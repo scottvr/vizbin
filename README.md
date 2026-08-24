@@ -288,6 +288,11 @@ data), and small multi-byte counters are shown at their *observed* width (a
 counter that never exceeds 65535 reads as `u16`). Adjacent constant fields can
 merge — the evidence (hex/ASCII) is shown so you can split them by eye.
 
+Stride detection has two engines: byte-autocorrelation for records with several
+fixed fields, plus a **sparse-marker** scan for records whose *only* fixed byte
+is a periodic sync/marker in otherwise-opaque payload (e.g. an MPEG-TS `0x47`
+sync every 188 bytes) — a case where the autocorrelation stays flat.
+
 **Export the guess into a real parser** with `--format` (or `--json`) — this is
 the point: go from a picture of an unknown format to something you can compile.
 

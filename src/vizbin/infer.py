@@ -278,12 +278,45 @@ def _autocorr(sample: bytes, lag: int) -> float:
     return sum(x == y for x, y in zip(sample, sample[lag:])) / n
 
 
+def _marker_stride(sample: bytes, cap: int):
+    """Detect a sparse *periodic marker*: a byte value that recurs at a fixed
+    offset within a fixed period, even when the rest of each record is
+    high-entropy payload (so byte-autocorrelation stays low). Generalizes the
+    sync-byte idea -- MPEG-TS 0x47, frame markers, fixed tags in opaque records.
+
+    Returns (stride, value, offset) for the smallest strong period, or None. A
+    real marker sits at one residue mod the stride in ~every record, so its
+    residue-histogram spikes; a merely-common byte (padding, random) scatters
+    across residues and never spikes, so the score itself is the filter.
+    """
+    n = len(sample)
+    freq = Counter(sample)
+    best = None  # (stride, value, offset)
+    for value, count in freq.most_common(6):
+        if count < _MIN_RECORDS:
+            continue  # too rare to be a once-per-record marker
+        positions = [i for i, b in enumerate(sample) if b == value]
+        for d in range(4, cap + 1):
+            nrec = n // d
+            if nrec < _MIN_RECORDS:
+                break  # d too large from here on
+            residues = Counter(p % d for p in positions)
+            offset, top = residues.most_common(1)[0]
+            if top / nrec >= 0.90:            # marker at a fixed offset in ~all records
+                if best is None or d < best[0]:
+                    best = (d, value, offset)
+                break  # smallest strong period for this marker
+    return best
+
+
 def select_stride(data: bytes, override: int | None = None):
     """Pick a record stride. Returns (stride|None, why).
 
     Finds the period by byte-autocorrelation (dense over every lag, so arbitrary
     record sizes work), takes the *smallest* strong local peak (the fundamental,
-    not a multiple), and requires enough records to be reliable.
+    not a multiple), and requires enough records to be reliable. Falls back to a
+    sparse periodic-marker scan (:func:`_marker_stride`) when autocorrelation is
+    flat -- records whose only fixed byte is a sync/marker in opaque payload.
     """
     if override:
         n_rec = len(data) // override if override else 0
@@ -300,6 +333,13 @@ def select_stride(data: bytes, override: int | None = None):
         return None, "not enough data for auto-detection (try --stride)"
     peak = max(v for v, _ in ac)
     if peak < 0.12:
+        # autocorrelation is flat -- try a sparse periodic marker (sync byte in
+        # otherwise-opaque payload) before giving up.
+        m = _marker_stride(sample, cap)
+        if m:
+            d, value, offset = m
+            return d, (f"sparse marker: byte 0x{value:02x} recurs every {d} "
+                       f"bytes at offset {offset}")
         return None, f"no periodic record structure (byte-autocorrelation {peak:.2f})"
     acmap = {d: v for v, d in ac}
     strong = [d for v, d in ac

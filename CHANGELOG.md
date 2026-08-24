@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (with endianness), printable **strings**, and high-entropy **blobs**. Reports
   honestly when there's no strong record structure. Closes the loop from "I can
   *see* records" to "here's a machine-readable guess at their layout."
+- **`infer` sparse-marker stride detection** — a second stride engine that finds
+  records whose *only* fixed byte is a periodic sync/marker in otherwise-opaque
+  payload (e.g. an MPEG-TS `0x47` sync every 188 bytes), where byte-autocorrelation
+  stays flat. Runs only as a fallback when autocorrelation finds nothing, and its
+  residue-histogram score refuses to false-positive on random data.
 - **`infer` accuracy tuning** — constant runs now split at the zero↔nonzero
   boundary (reserved padding no longer merges with a string's fixed prefix);
   counters recover a fixed non-zero high byte (e.g. a big-endian `0x01xxxxxx`);

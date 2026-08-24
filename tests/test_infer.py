@@ -122,6 +122,25 @@ def test_periodic_but_no_constant_columns_rejected():
     assert "no constant columns" in why
 
 
+def test_sparse_marker_stride():
+    # a sync byte at a fixed offset in otherwise-random records: byte-
+    # autocorrelation is flat, but the marker recurs periodically.
+    data = bytearray()
+    for _ in range(300):
+        r = random.Random(len(data))
+        data += bytes([0x47]) + bytes(r.randrange(256) for _ in range(187))
+    stride, why = infer.select_stride(bytes(data))
+    assert stride == 188, why
+    assert "sparse marker" in why and "0x47" in why
+
+
+def test_marker_does_not_false_positive_on_random():
+    # pure random has a most-common byte, but it scatters across residues
+    rng = random.Random(9)
+    data = bytes(rng.randrange(256) for _ in range(16384))
+    assert infer._marker_stride(data, cap=1024) is None
+
+
 def test_be_counter_with_constant_high_byte():
     # a big-endian u32 with a fixed 0x01 top byte must still read as a counter
     data = bytearray()
