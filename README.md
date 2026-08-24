@@ -18,6 +18,9 @@ Two ideas drive it:
 
 Vary both and let human vision do the first pass of reconnaissance.
 
+**See it in action:** the [gallery](docs/GALLERY.md) shows real renders — the
+projections, channel composition, contact sheets, text mode, and the binary diff.
+
 It grew out of a shell one-liner that `cat`'d a file's bytes into a hand-built
 BMP header. That trick survives here as the reversible `bmp` mode, where payload
 byte *n* lands at file offset `54 + n` — so an interesting region in the picture
@@ -88,8 +91,9 @@ vizbin render mystery.bin --offset 0x12000 --length 65536 -w 256
 ```
 
 Don't know the offset? **Find it.** `--find` (or `--find-hex`) locates a pattern
-and centres the render window on it — so you can jump straight to an interesting
-string without hunting for its address:
+and windows the render around it (the match sits at the centre of the byte
+window) — so you can jump straight to an interesting string without hunting for
+its address:
 
 ```sh
 vizbin render firmware.bin -m text --find "https://" --length 4096
