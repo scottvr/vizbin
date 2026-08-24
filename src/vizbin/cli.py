@@ -94,8 +94,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help="channel composition: up to 3 transforms driving R,G,B "
                         "(e.g. entropy,delta,xor). Its own colouring; overrides -m/-t.")
     r.add_argument("--term", action="store_true",
-                   help="render into the terminal (24-bit ANSI half-blocks) "
+                   help="render into the terminal (ANSI half-blocks) "
                         "instead of writing a file")
+    r.add_argument("--color", choices=["auto", "truecolor", "256"], default="auto",
+                   help="--term colour depth: auto (trust $COLORTERM), truecolor "
+                        "(24-bit), or 256 (for terminals without truecolor, e.g. "
+                        "macOS Terminal.app -- fixes wrong background / blinking)")
+    r.add_argument("--format", choices=["bmp", "svg"], default=None,
+                   help="output image format (default: bmp, or svg if -o ends .svg). "
+                        "SVG is crisp/scalable — best for structured renders.")
     r.add_argument("--find", default=None,
                    help="locate a string and window the render around it "
                         "(centre; window size = --length, default 8192)")
@@ -147,7 +154,9 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--widths", default=None,
                    help="explicit widths instead of --from/--to/--step")
     a.add_argument("-m", "--mode", default="gray", help=modes_help)
-    a.add_argument("--fps", type=int, default=12)
+    a.add_argument("--fps", type=int, default=12,
+                   help="frames per second (default 12); lower it (e.g. 3-6) for "
+                        "a short sweep so you can watch the structure snap in")
     a.add_argument("--format", choices=["gif", "mp4"], default="gif")
     a.add_argument("--max-size", dest="max_size", type=int, default=512,
                    help="cap each frame's largest dimension (0 = no cap)")
@@ -207,6 +216,9 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("-o", "--output", help="write a diff image (BMP)")
     d.add_argument("--term", action="store_true",
                    help="render the diff image into the terminal")
+    d.add_argument("--color", choices=["auto", "truecolor", "256"], default="auto",
+                   help="--term colour depth: auto (trust $COLORTERM), truecolor, "
+                        "or 256 (for terminals without truecolor support)")
     d.add_argument("--json", action="store_true", help="emit the diff as JSON")
     _add_region(d)
     d.set_defaults(func=commands.cmd_diff)

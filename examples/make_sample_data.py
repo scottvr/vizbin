@@ -24,15 +24,24 @@ def main() -> None:
     with open(os.path.join(OUT, "random.bin"), "wb") as fh:
         fh.write(bytes(rng.getrandbits(8) for _ in range(16384)))
 
-    # 188-byte "TS-like" fixed records with a sync byte + counter
+    # 188-byte "TS-like" records: a 0x47 sync byte, a fixed magic, a u32 counter,
+    # then a 179-byte payload that RANDOM-WALKS from record to record -- each
+    # column drifts +-40 per step. Two properties fall out of that walk, and they
+    # are what make this file demo the whole find->verify loop:
+    #   * adjacent records look alike (small per-step drift) -> high row coherence,
+    #     so `suggest` ranks 188 first and `infer` locks onto the 188 stride;
+    #   * each column still wanders across its full range over 400 records -> high
+    #     entropy, so `infer` reads the payload as one clean blob (not fragments).
+    # Visually the walk paints a vertical wood-grain at the true 188 stride that
+    # shears into diagonals at any other width -- so a width sweep snaps cleanly.
+    # (A flat random payload had neither the coherence nor the vertical grain.)
+    walk = random.Random(0xC0FFEE)
+    payload = [walk.randrange(256) for _ in range(179)]
     rec = bytearray()
     for i in range(400):
-        r = bytearray(188)
-        r[0] = 0x47
-        r[1] = i & 0xFF
-        r[2] = (i >> 8) & 0xFF
-        for j in range(3, 188):
-            r[j] = (i * 7 + j) & 0xFF
+        for j in range(179):
+            payload[j] = (payload[j] + walk.randrange(-40, 41)) & 0xFF
+        r = bytes([0x47]) + b"REC1" + i.to_bytes(4, "little") + bytes(payload)  # 1+4+4+179
         rec += r
     with open(os.path.join(OUT, "records.bin"), "wb") as fh:
         fh.write(bytes(rec))

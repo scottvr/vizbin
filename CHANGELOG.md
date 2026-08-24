@@ -6,6 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-24
+
+### Added
+- **SVG image output** — name an output `-o *.svg` (or pass `render --format svg`)
+  to emit a crisp, scalable SVG of run-length-encoded colour rectangles instead of
+  a BMP. Vector + `shape-rendering="crispEdges"` means razor-sharp pixels at any
+  zoom (no upscaling blur), and it renders natively in browsers / Markdown. Sized
+  by colour transitions rather than pixel count: compact for structured renders,
+  larger for high-entropy noise (keep BMP for those). Supported by `render` (all
+  paths: `-m`, `-t`/`--pipe`, `--rgb`), `contact`, and `diff`. New `canvas.to_svg`.
+
+### Fixed
+- `render --term` / `diff --term` now fall back to the **256-colour** palette on
+  terminals without 24-bit colour (macOS Terminal.app; kitty and others when
+  `$COLORTERM` isn't exported). The old code always emitted 24-bit `38;2;r;g;b`,
+  which those terminals misparse — the background never sets (only the top half
+  of each cell shows) and colour bytes leak in as text attributes (a byte of
+  value 5 turns on blink). Depth is auto-detected from `$COLORTERM` and
+  overridable with `--color {auto,truecolor,256}`. New `canvas.rgb_to_256`.
+- `animate` GIFs now pad every frame to a uniform canvas size. A width sweep
+  produces frames of differing sizes, and many viewers (kitty, some image apps)
+  refuse to *animate* a GIF whose frames vary in size — they show the first frame
+  and stop. Uniform frames animate everywhere. (The loop flag was already correct.)
+
+### Docs
+- Regenerated the gallery images crisp — rendered to SVG, then rasterized to small
+  PNGs (via the new SVG output), so they're sharp instead of upscale-blurry.
+- Refreshed `scripts/demo.sh` to tour every feature (SVG output, a colourful
+  `--term` showcase, `diff --term`). It echoes each command as you'd type it and
+  pauses for a keypress between steps — reads like a real session, good to record
+  as a terminal demo (`NOPAUSE=1` to skip; pauses auto-skip when not a terminal).
+
 ## [0.5.2] - 2026-08-24
 
 ### Fixed
@@ -160,7 +192,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `raw-rgb`, `byteclass`, `entropy`, `delta`, `xor`, `bitplane`, `nibble`.
   Pure-stdlib BMP writer and animated-GIF encoder.
 
-[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/scottvr/vizbin/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/scottvr/vizbin/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/scottvr/vizbin/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/scottvr/vizbin/compare/v0.4.0...v0.5.0

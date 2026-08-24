@@ -21,6 +21,18 @@ Vary both and let human vision do the first pass of reconnaissance.
 **See it in action:** the [gallery](https://github.com/scottvr/vizbin/blob/main/docs/GALLERY.md) shows real renders — the
 projections, channel composition, contact sheets, text mode, and the binary diff.
 
+**Watch the whole tour** — every command, run end to end (structure discovery,
+image + SVG output, the colour terminal renders, `inspect`, and `diff`):
+
+![vizbin — a guided tour of every feature, recorded from scripts/demo.sh](https://github.com/scottvr/vizbin/raw/main/docs/images/demo.sh.gif)
+
+Run it yourself — clone the repo and step through with a keypress between commands:
+
+```sh
+git clone https://github.com/scottvr/vizbin && cd vizbin
+bash scripts/demo.sh
+```
+
 It grew out of a shell one-liner that `cat`'d a file's bytes into a hand-built
 BMP header. That trick survives here as the reversible `bmp` mode, where payload
 byte *n* lands at file offset `54 + n` — so an interesting region in the picture
@@ -89,6 +101,18 @@ Window a region without extracting it first (great for reversing):
 ```sh
 vizbin render mystery.bin --offset 0x12000 --length 65536 -w 256
 ```
+
+Output **SVG** for a crisp, scalable image (`--format svg`, or just name the
+output `.svg`) — vector rectangles that stay razor-sharp at any zoom, no
+upscaling blur, and render natively in a browser or a Markdown page:
+
+```sh
+vizbin render firmware.bin -m byteclass -o fw.svg
+```
+
+SVG is sized by colour transitions, not pixels, so it's compact and sharp for
+*structured* renders (region maps, byte classes) — but a wall of high-entropy
+noise turns into one rect per pixel, so keep BMP (the default) for those.
 
 Don't know the offset? **Find it.** `--find` (or `--find-hex`) locates a pattern
 and windows the render around it (the match sits at the centre of the byte

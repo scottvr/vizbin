@@ -170,6 +170,21 @@ def write_gif(path: str, frames: list[Raster], *, delay_cs: int = 8,
     canvas_w = max(fr.width for fr in frames)
     canvas_h = max(fr.height for fr in frames)
 
+    # Pad every frame to the canvas size. A width sweep produces frames of
+    # differing sizes, and many viewers (kitty, some image apps) refuse to
+    # *animate* a GIF whose frames vary in size -- they show the first and stop.
+    # Uniform full-canvas frames are the maximally-compatible form.
+    if any(fr.width != canvas_w or fr.height != canvas_h for fr in frames):
+        padded: list[Raster] = []
+        for fr in frames:
+            if fr.width == canvas_w and fr.height == canvas_h:
+                padded.append(fr)
+            else:
+                c = Raster(canvas_w, canvas_h)  # black background
+                c.blit(fr, 0, 0)
+                padded.append(c)
+        frames = padded
+
     gray = _is_grayscale(frames)
     palette = _gray_palette() if gray else _rgb332_palette()
     to_indices = _indices_gray if gray else _indices_332

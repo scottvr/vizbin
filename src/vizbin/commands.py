@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from vizbin import bmp, gif, layout, projections
-from vizbin.canvas import ContactStyle, Raster, contact_sheet, to_ansi_halfblocks
+from vizbin.canvas import ContactStyle, Raster, contact_sheet, to_ansi_halfblocks, to_svg
 
 
 # ---------------------------------------------------------------------------
@@ -82,17 +82,47 @@ def _term_dims() -> tuple[int, int]:
     return max(1, cols), max(2, (rows - 1) * 2)
 
 
+def _want_truecolor(args) -> bool:
+    """Decide whether `--term` should emit 24-bit or 256-colour SGR.
+
+    `--color truecolor|256` forces it; `auto` (default) trusts `COLORTERM`,
+    the de-facto truecolor advertisement. Terminals that lack 24-bit colour
+    (macOS Terminal.app; kitty/others when COLORTERM isn't exported) don't set
+    it, and there the 24-bit form misrenders (background never sets, stray
+    colour bytes turn on blink) -- so we fall back to the 256-colour palette,
+    which those terminals do support.
+    """
+    choice = getattr(args, "color", "auto")
+    if choice == "truecolor":
+        return True
+    if choice == "256":
+        return False
+    return os.environ.get("COLORTERM", "").lower() in ("truecolor", "24bit")
+
+
+def _write_image(path: str, raster: Raster) -> None:
+    """Write a raster as SVG (path ends .svg) or BMP (anything else)."""
+    if path.lower().endswith(".svg"):
+        with open(path, "w") as fh:
+            fh.write(to_svg(raster))
+    else:
+        bmp.write_rgb_bmp(path, bytes(raster.rgb), raster.width, raster.height)
+
+
 def _emit_render(args, data: bytes, raster: Raster, label: str,
                  default_name: str, want_hint: bool = True) -> int:
-    """Output a rendered raster: to the terminal (--term) or a BMP file."""
+    """Output a rendered raster: to the terminal (--term) or an image file."""
     if getattr(args, "term", False):
         shown = raster.fit(*_term_dims())
-        sys.stdout.write(to_ansi_halfblocks(shown))
+        sys.stdout.write(to_ansi_halfblocks(shown, truecolor=_want_truecolor(args)))
         print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
               f"[{label}] -> terminal ({shown.width}x{shown.height})")
     else:
         out = _resolve_output(args, default_name)
-        bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+        # SVG when --format svg or the output path ends in .svg; BMP otherwise.
+        if getattr(args, "format", None) == "svg" and not out.lower().endswith(".svg"):
+            out = out.rsplit(".", 1)[0] + ".svg"
+        _write_image(out, raster)
         print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
               f"[{label}] -> {out}")
     if want_hint and not getattr(args, "no_hints", False):
@@ -258,7 +288,7 @@ def cmd_contact(args) -> int:
     sheet = contact_sheet(tiles, style)
     default = out_name(args.input, kind="contact", mode=base_mode, suffix=vary)
     out = _resolve_output(args, default)
-    bmp.write_rgb_bmp(out, bytes(sheet.rgb), sheet.width, sheet.height)
+    _write_image(out, sheet)  # BMP, or SVG if -o ends .svg
     print(f"{args.input}: contact sheet {len(tiles)} tiles "
           f"({sheet.width}x{sheet.height}) -> {out}")
     return 0
@@ -737,11 +767,11 @@ def cmd_diff(args) -> int:
         raster = bindiff.render_diff(b, result, width)
         if getattr(args, "term", False):
             shown = raster.fit(*_term_dims())
-            sys.stdout.write(to_ansi_halfblocks(shown))
+            sys.stdout.write(to_ansi_halfblocks(shown, truecolor=_want_truecolor(args)))
             print(f"  diff image -> terminal ({shown.width}x{shown.height})")
         else:
             out = args.output
-            bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+            _write_image(out, raster)  # BMP, or SVG if -o ends .svg
             print(f"  diff image -> {raster.width}x{raster.height} -> {out}")
     return 0
 
