@@ -72,3 +72,6 @@ smear the rest of the file — it stays 99% identical.
 The text-output commands (`suggest`, `inspect`, `infer`, `profile`, the `diff`
 report) are shown as terminal snippets in the [README](../README.md). And of
 course, everything here also renders straight into your terminal with `--term`.
+
+<sub>Made it this far? There's [an easter egg](GHFM-COLOR.md) where a render is drawn
+in colour using nothing but LaTeX math. It's ridiculous. It works. Mostly.</sub>
