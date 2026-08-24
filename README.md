@@ -21,6 +21,18 @@ Vary both and let human vision do the first pass of reconnaissance.
 **See it in action:** the [gallery](https://github.com/scottvr/vizbin/blob/main/docs/GALLERY.md) shows real renders — the
 projections, channel composition, contact sheets, text mode, and the binary diff.
 
+**Watch the whole tour** — every command, run end to end (structure discovery,
+image + SVG output, the colour terminal renders, `inspect`, and `diff`):
+
+![vizbin — a guided tour of every feature, recorded from scripts/demo.sh](https://github.com/scottvr/vizbin/raw/main/docs/images/demo.sh.gif)
+
+Run it yourself — clone the repo and step through with a keypress between commands:
+
+```sh
+git clone https://github.com/scottvr/vizbin && cd vizbin
+bash scripts/demo.sh
+```
+
 It grew out of a shell one-liner that `cat`'d a file's bytes into a hand-built
 BMP header. That trick survives here as the reversible `bmp` mode, where payload
 byte *n* lands at file offset `54 + n` — so an interesting region in the picture

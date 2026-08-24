@@ -37,24 +37,9 @@ section() {
 
 section "generating ${SD} files"
 "$PY" examples/make_sample_data.py
-
-# --- structure discovery ---------------------------------------------------
-
-section "suggest: rank candidate record widths"
-run $VB suggest "$SD/records.bin" -v --top 6
-
-section "infer: draft a record layout (0x47 sync + counter), then emit a parser"
-run $VB infer "$SD/records.bin"
-run $VB infer "$SD/records.bin" --format struct
+_first=1
 
 # --- image artifacts (files) ----------------------------------------------
-
-section "render at the true 188-byte stride (BMP)"
-run $VB render "$SD/records.bin" -w 188 -m gray -o "$OUT/records.w188.gray.bmp"
-
-section "width-sweep animation around the record boundary (GIF)"
-run $VB animate "$SD/records.bin" --widths 176,180,184,188,192,196,200 -m gray --fps 3 \
-    -o "$OUT/records.sweep.gif"
 
 section "profile: fingerprint + entropy-band regions (a heterogeneous blob)"
 run $VB profile "$SD/mixed.bin"
@@ -64,6 +49,36 @@ run $VB render "$SD/mixed.bin" -m byteclass -w 128 -o "$OUT/mixed.byteclass.svg"
 
 section "contact sheet: four projections side by side (BMP)"
 run $VB contact "$SD/mixed.bin" --modes gray,byteclass,entropy,delta -w 128 -o "$OUT/mixed.contact.bmp"
+
+
+# --- structure discovery ---------------------------------------------------
+
+section "suggest: rank candidate record widths"
+
+run  $VB suggest "$SD/records.bin" -v --top 6
+
+section "infer: draft a record layout (0x47 sync + counter), then emit a parser"
+run $VB infer "$SD/records.bin"
+run $VB infer "$SD/records.bin" --format struct
+
+# --- pinpoint & inspect ----------------------------------------------------
+
+section "inspect: what one coordinate means, across modes"
+
+run $VB inspect "$SD/records.bin" -w 188 --modes gray,byteclass --offset 1
+run $VB inspect "$SD/records.bin" -w 188 --rgb entropy,delta,xor --offset 1
+
+section "width-sweep animation around the record boundary (GIF)"
+run $VB animate "$SD/records.bin" --widths 176,180,184,188,192,196,200 -m gray --fps 1 \
+    -o "$OUT/records.sweep.gif"
+
+section "render to terminal at the true 188-byte stride"
+echo "Note the small band vertically down the left-hand-side"
+run $VB render "$SD/records.bin" -w 188 --offset 56400  -m gray --term
+
+section "render to terminal at a close-but-wrong (180-byte) stride"
+echo "Note the lack of the vertical band. See the animated gif in output/records.sweep.gif"
+run $VB render "$SD/records.bin" -w 180  --offset 56400 -m gray --term
 
 # --- the colourful part: rendered straight into the terminal ---------------
 
@@ -82,15 +97,10 @@ run $VB render "$SD/mixed.bin" -t xor,entropy --paint magma --term
 section "text mode + find: window on 'CONFIG', readable glyphs in the terminal"
 run $VB render "$SD/mixed.bin" -m text --find "CONFIG" --length 1024 --term
 
-# --- pinpoint & inspect ----------------------------------------------------
-
-section "inspect: what one coordinate means, across modes"
-run $VB inspect "$SD/records.bin" -w 188 --modes gray,byteclass --offset 1
-run $VB inspect "$SD/records.bin" -w 188 --rgb entropy,delta,xor --offset 1
-
 # --- diff ------------------------------------------------------------------
 
 section "diff: shift-tolerant structural diff of two versions"
+
 cp "$SD/records.bin" "$OUT/records_v2.bin"
 "$PY" - "$OUT/records_v2.bin" <<'PY'
 import sys
