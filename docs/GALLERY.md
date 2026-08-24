@@ -46,9 +46,11 @@ image, four hypotheses, for quick triage.
 
 <img src="images/render-text.png" width="720" alt="text mode render of a tar of source files">
 
-`vizbin render src.tar -m text` renders a tar of vizbin's own source: printable
-ASCII becomes readable glyphs, while NUL padding and binary header fields stay as
-coloured tiles — so you read the strings *and* see the scaffolding around them.
+`vizbin render src.tar -m text --find "def to_dict"` renders a window of a tar of
+vizbin's own source: printable ASCII becomes readable glyphs (you can *read* the
+`to_dict`/`to_json` methods), while NUL padding and the `ustar` header fields stay
+as coloured tiles — so you see the strings *and* the scaffolding around them.
+`--find` centres the view on the pattern, so no offset-hunting.
 
 ## diff — what changed between two binaries
 

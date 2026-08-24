@@ -69,7 +69,10 @@ viz render "$MIX" -m entropy   -w 160 -o "$TMP/ent.bmp"      --no-hints >/dev/nu
 viz render "$MIX" -m nibble    -w 160 -o "$TMP/nib.bmp"      --no-hints >/dev/null; emit render-nibble "$TMP/nib.bmp"
 viz render "$MIX" --rgb entropy,delta,xor -w 160 -o "$TMP/rgb.bmp" --no-hints >/dev/null; emit render-rgb "$TMP/rgb.bmp"
 viz render "$MIX" -t xor,entropy --paint magma -w 160 -o "$TMP/pipe.bmp" --no-hints >/dev/null; emit render-pipe "$TMP/pipe.bmp"
-viz render "$TMP/src.tar" -m text -w 80 -o "$TMP/text.bmp"   --no-hints >/dev/null; emit render-text "$TMP/text.bmp"
+# text mode: window on a readable code section via --find (stable, not a hardcoded
+# offset) instead of rendering the whole tar (~1.8MB image)
+viz render "$TMP/src.tar" -m text --find "def to_dict" --length 6000 -w 80 \
+    -o "$TMP/text.bmp" --no-hints >/dev/null; emit render-text "$TMP/text.bmp"
 viz contact "$MIX" --modes gray,byteclass,entropy,delta -w 160 -o "$TMP/contact.bmp" >/dev/null; emit contact "$TMP/contact.bmp"
 viz diff "$TMP/fw_v1.bin" "$TMP/fw_v2.bin" -o "$TMP/diff.bmp" -w 128 >/dev/null; emit diff "$TMP/diff.bmp"
 
