@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `infer`: when the byte-autocorrelation stride has no constant columns (a
+  spurious peak — arithmetic payloads can autocorrelate strongly at a wrong lag),
+  fall back to the sparse-marker detector instead of reporting "variable-length
+  text". Records whose only fixed byte is a periodic sync/marker are now found
+  even when a bogus autocorrelation peak shadows the true stride.
+
 ## [0.5.1] - 2026-08-24
 
 ### Fixed

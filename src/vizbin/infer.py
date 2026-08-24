@@ -348,9 +348,18 @@ def select_stride(data: bytes, override: int | None = None):
     stride = min(strong) if strong else min(d for v, d in ac if v >= 0.85 * peak)
     frac = _aligned_const_frac(data, stride)
     if frac == 0.0:
-        # periodic, but NO byte position is fixed across records -- almost always
-        # regular-length text, not a fixed-record binary (fixed records share at
-        # least one magic/sync/flag/reserved byte, so frac > 0).
+        # No byte position is fixed at the autocorrelation-chosen stride. That
+        # stride may just be a spurious peak (arithmetic payloads can autocorrelate
+        # strongly at a wrong lag), so give the sparse-marker detector a chance
+        # before concluding this is variable-length text -- it finds records whose
+        # only fixed byte is a periodic sync/marker.
+        m = _marker_stride(sample, cap)
+        if m and _aligned_const_frac(data, m[0]) > 0.0:
+            d, value, offset = m
+            return d, (f"sparse marker: byte 0x{value:02x} recurs every {d} bytes "
+                       f"at offset {offset} (autocorrelation peaked spuriously at {stride})")
+        # periodic, but genuinely no fixed byte -- almost always regular-length
+        # text, not a fixed-record binary.
         return None, (f"periodic at {stride} but no constant columns "
                       f"-- variable-length text, not fixed records? (try --stride)")
     note = " -- nearly all-constant, may be padding not records" if frac >= 0.95 else ""

@@ -134,6 +134,22 @@ def test_sparse_marker_stride():
     assert "sparse marker" in why and "0x47" in why
 
 
+def test_marker_fallback_when_autocorr_stride_has_no_constant_columns():
+    # arithmetic payload autocorrelates strongly at a WRONG lag (181), shadowing
+    # the true 188-byte records; the sync byte 0x47 must still be recovered.
+    rec_len = 188
+    data = bytearray()
+    for i in range(400):
+        r = bytearray(rec_len)
+        r[0] = 0x47                              # sync marker
+        for j in range(1, rec_len):
+            r[j] = (i * 7 + j) & 0xFF            # autocorrelates at lag 181
+        data += r
+    stride, why = infer.select_stride(bytes(data))
+    assert stride == 188, why
+    assert "0x47" in why and "marker" in why
+
+
 def test_marker_does_not_false_positive_on_random():
     # pure random has a most-common byte, but it scatters across residues
     rng = random.Random(9)
