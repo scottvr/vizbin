@@ -94,8 +94,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="channel composition: up to 3 transforms driving R,G,B "
                         "(e.g. entropy,delta,xor). Its own colouring; overrides -m/-t.")
     r.add_argument("--term", action="store_true",
-                   help="render into the terminal (24-bit ANSI half-blocks) "
+                   help="render into the terminal (ANSI half-blocks) "
                         "instead of writing a file")
+    r.add_argument("--color", choices=["auto", "truecolor", "256"], default="auto",
+                   help="--term colour depth: auto (trust $COLORTERM), truecolor "
+                        "(24-bit), or 256 (for terminals without truecolor, e.g. "
+                        "macOS Terminal.app -- fixes wrong background / blinking)")
     r.add_argument("--format", choices=["bmp", "svg"], default=None,
                    help="output image format (default: bmp, or svg if -o ends .svg). "
                         "SVG is crisp/scalable — best for structured renders.")
@@ -212,6 +216,9 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("-o", "--output", help="write a diff image (BMP)")
     d.add_argument("--term", action="store_true",
                    help="render the diff image into the terminal")
+    d.add_argument("--color", choices=["auto", "truecolor", "256"], default="auto",
+                   help="--term colour depth: auto (trust $COLORTERM), truecolor, "
+                        "or 256 (for terminals without truecolor support)")
     d.add_argument("--json", action="store_true", help="emit the diff as JSON")
     _add_region(d)
     d.set_defaults(func=commands.cmd_diff)

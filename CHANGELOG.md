@@ -18,6 +18,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   paths: `-m`, `-t`/`--pipe`, `--rgb`), `contact`, and `diff`. New `canvas.to_svg`.
 
 ### Fixed
+- `render --term` / `diff --term` now fall back to the **256-colour** palette on
+  terminals without 24-bit colour (macOS Terminal.app; kitty and others when
+  `$COLORTERM` isn't exported). The old code always emitted 24-bit `38;2;r;g;b`,
+  which those terminals misparse — the background never sets (only the top half
+  of each cell shows) and colour bytes leak in as text attributes (a byte of
+  value 5 turns on blink). Depth is auto-detected from `$COLORTERM` and
+  overridable with `--color {auto,truecolor,256}`. New `canvas.rgb_to_256`.
 - `animate` GIFs now pad every frame to a uniform canvas size. A width sweep
   produces frames of differing sizes, and many viewers (kitty, some image apps)
   refuse to *animate* a GIF whose frames vary in size — they show the first frame

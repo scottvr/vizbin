@@ -6,6 +6,7 @@ straight into :func:`vizbin.bmp.write_rgb_bmp`. No third-party imaging code.
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 
 
@@ -97,13 +98,74 @@ class Raster:
             cx += (FONT_W + 1) * scale
 
 
-def to_ansi_halfblocks(raster: "Raster") -> str:
-    """Render an RGB raster to a terminal string using 24-bit ANSI colour and
-    Unicode upper-half-block glyphs, so each character cell stacks two pixels
+# xterm 256-colour cube: the six per-channel levels used by indices 16..231.
+_CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
+
+
+def _nearest_cube(v: int) -> int:
+    best_i, best_d = 0, 256
+    for i, level in enumerate(_CUBE_LEVELS):
+        d = level - v if level > v else v - level
+        if d < best_d:
+            best_i, best_d = i, d
+    return best_i
+
+
+@functools.lru_cache(maxsize=None)
+def rgb_to_256(r: int, g: int, b: int) -> int:
+    """Quantise an RGB triple to the nearest xterm-256 palette index.
+
+    Considers both the 6x6x6 colour cube (16..231) and the 24-step gray ramp
+    (232..255) and returns whichever is closer, so grays stay neutral instead
+    of snapping to a tinted cube cell.
+    """
+    ri, gi, bi = _nearest_cube(r), _nearest_cube(g), _nearest_cube(b)
+    cr, cg, cb = _CUBE_LEVELS[ri], _CUBE_LEVELS[gi], _CUBE_LEVELS[bi]
+    cube_idx = 16 + 36 * ri + 6 * gi + bi
+    cube_err = (cr - r) ** 2 + (cg - g) ** 2 + (cb - b) ** 2
+
+    avg = (r + g + b) // 3
+    if avg < 8:
+        gray_idx, gv = 232, 8
+    elif avg > 238:
+        gray_idx, gv = 255, 238
+    else:
+        step = round((avg - 8) / 10)
+        step = 0 if step < 0 else 23 if step > 23 else step
+        gray_idx, gv = 232 + step, 8 + 10 * step
+    gray_err = (gv - r) ** 2 + (gv - g) ** 2 + (gv - b) ** 2
+
+    return cube_idx if cube_err <= gray_err else gray_idx
+
+
+def to_ansi_halfblocks(raster: "Raster", *, truecolor: bool = True) -> str:
+    """Render an RGB raster to a terminal string using ANSI colour and Unicode
+    upper-half-block glyphs, so each character cell stacks two pixels
     (foreground = top pixel, background = bottom). No file, no image viewer.
+
+    ``truecolor`` selects the SGR form: 24-bit ``38;2;r;g;b`` (default) or, for
+    terminals without truecolor support (e.g. macOS Terminal.app), the
+    256-colour ``38;5;n`` palette. The 24-bit form misparses badly on such
+    terminals -- unrecognised ``38;2`` leaks the colour bytes in as text
+    attributes, so a byte of value 5 turns on blink and the background never
+    sets -- which is why the 256 fallback exists.
     """
     w, h, rgb = raster.width, raster.height, raster.rgb
     up = "▀"  # ▀ upper half block
+
+    if truecolor:
+        def fg_of(i: int) -> str:
+            return f"\x1b[38;2;{rgb[i]};{rgb[i + 1]};{rgb[i + 2]}m"
+
+        def bg_of(i: int) -> str:
+            return f"\x1b[48;2;{rgb[i]};{rgb[i + 1]};{rgb[i + 2]}m"
+    else:
+        def fg_of(i: int) -> str:
+            return f"\x1b[38;5;{rgb_to_256(rgb[i], rgb[i + 1], rgb[i + 2])}m"
+
+        def bg_of(i: int) -> str:
+            return f"\x1b[48;5;{rgb_to_256(rgb[i], rgb[i + 1], rgb[i + 2])}m"
+
     lines = []
     for y in range(0, h, 2):
         top = y * w * 3
@@ -112,10 +174,9 @@ def to_ansi_halfblocks(raster: "Raster") -> str:
         cells = []
         for x in range(w):
             t = top + x * 3
-            fg = f"\x1b[38;2;{rgb[t]};{rgb[t + 1]};{rgb[t + 2]}m"
+            fg = fg_of(t)
             if has_bottom:
-                b = bot + x * 3
-                bgc = f"\x1b[48;2;{rgb[b]};{rgb[b + 1]};{rgb[b + 2]}m"
+                bgc = bg_of(bot + x * 3)
             else:
                 bgc = "\x1b[49m"  # default background for the dangling last row
             cells.append(fg + bgc + up)

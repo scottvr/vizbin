@@ -82,6 +82,24 @@ def _term_dims() -> tuple[int, int]:
     return max(1, cols), max(2, (rows - 1) * 2)
 
 
+def _want_truecolor(args) -> bool:
+    """Decide whether `--term` should emit 24-bit or 256-colour SGR.
+
+    `--color truecolor|256` forces it; `auto` (default) trusts `COLORTERM`,
+    the de-facto truecolor advertisement. Terminals that lack 24-bit colour
+    (macOS Terminal.app; kitty/others when COLORTERM isn't exported) don't set
+    it, and there the 24-bit form misrenders (background never sets, stray
+    colour bytes turn on blink) -- so we fall back to the 256-colour palette,
+    which those terminals do support.
+    """
+    choice = getattr(args, "color", "auto")
+    if choice == "truecolor":
+        return True
+    if choice == "256":
+        return False
+    return os.environ.get("COLORTERM", "").lower() in ("truecolor", "24bit")
+
+
 def _write_image(path: str, raster: Raster) -> None:
     """Write a raster as SVG (path ends .svg) or BMP (anything else)."""
     if path.lower().endswith(".svg"):
@@ -96,7 +114,7 @@ def _emit_render(args, data: bytes, raster: Raster, label: str,
     """Output a rendered raster: to the terminal (--term) or an image file."""
     if getattr(args, "term", False):
         shown = raster.fit(*_term_dims())
-        sys.stdout.write(to_ansi_halfblocks(shown))
+        sys.stdout.write(to_ansi_halfblocks(shown, truecolor=_want_truecolor(args)))
         print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
               f"[{label}] -> terminal ({shown.width}x{shown.height})")
     else:
@@ -749,7 +767,7 @@ def cmd_diff(args) -> int:
         raster = bindiff.render_diff(b, result, width)
         if getattr(args, "term", False):
             shown = raster.fit(*_term_dims())
-            sys.stdout.write(to_ansi_halfblocks(shown))
+            sys.stdout.write(to_ansi_halfblocks(shown, truecolor=_want_truecolor(args)))
             print(f"  diff image -> terminal ({shown.width}x{shown.height})")
         else:
             out = args.output
