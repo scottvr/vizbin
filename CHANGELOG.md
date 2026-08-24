@@ -17,6 +17,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   larger for high-entropy noise (keep BMP for those). Supported by `render` (all
   paths: `-m`, `-t`/`--pipe`, `--rgb`), `contact`, and `diff`. New `canvas.to_svg`.
 
+### Fixed
+- `animate` GIFs now pad every frame to a uniform canvas size. A width sweep
+  produces frames of differing sizes, and many viewers (kitty, some image apps)
+  refuse to *animate* a GIF whose frames vary in size — they show the first frame
+  and stop. Uniform frames animate everywhere. (The loop flag was already correct.)
+
 ### Docs
 - Regenerated the gallery images crisp — rendered to SVG, then rasterized to small
   PNGs (via the new SVG output), so they're sharp instead of upscale-blurry.

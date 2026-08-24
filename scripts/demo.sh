@@ -11,8 +11,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 VB="${VIZBIN:-vizbin}"
 PY="${PYTHON:-python3}"
-OUT=examples/output
-SD=examples/sample-data
+OUT=./examples/output
+SD=./examples/sample-data
 mkdir -p "$OUT"
 
 # Pause between steps so a screen recording can breathe. Auto-skipped when stdin
@@ -35,6 +35,7 @@ section() {
   printf '\n\033[36m== %s ==\033[0m\n' "$*"   # cyan section headers
 }
 
+section "generating ${SD} files"
 "$PY" examples/make_sample_data.py
 
 # --- structure discovery ---------------------------------------------------
@@ -46,22 +47,23 @@ section "infer: draft a record layout (0x47 sync + counter), then emit a parser"
 run $VB infer "$SD/records.bin"
 run $VB infer "$SD/records.bin" --format struct
 
-section "profile: fingerprint + entropy-band regions (a heterogeneous blob)"
-run $VB profile "$SD/mixed.bin"
-
 # --- image artifacts (files) ----------------------------------------------
 
 section "render at the true 188-byte stride (BMP)"
 run $VB render "$SD/records.bin" -w 188 -m gray -o "$OUT/records.w188.gray.bmp"
+
+section "width-sweep animation around the record boundary (GIF)"
+run $VB animate "$SD/records.bin" --widths 176,180,184,188,192,196,200 -m gray --fps 3 \
+    -o "$OUT/records.sweep.gif"
+
+section "profile: fingerprint + entropy-band regions (a heterogeneous blob)"
+run $VB profile "$SD/mixed.bin"
 
 section "SVG output: crisp, scalable, browser-ready (-o *.svg)"
 run $VB render "$SD/mixed.bin" -m byteclass -w 128 -o "$OUT/mixed.byteclass.svg"
 
 section "contact sheet: four projections side by side (BMP)"
 run $VB contact "$SD/mixed.bin" --modes gray,byteclass,entropy,delta -w 128 -o "$OUT/mixed.contact.bmp"
-
-section "width-sweep animation around the record boundary (GIF)"
-run $VB animate "$SD/records.bin" --widths 180,184,188,192,196 -m gray -o "$OUT/records.sweep.gif"
 
 # --- the colourful part: rendered straight into the terminal ---------------
 

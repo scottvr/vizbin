@@ -150,7 +150,9 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--widths", default=None,
                    help="explicit widths instead of --from/--to/--step")
     a.add_argument("-m", "--mode", default="gray", help=modes_help)
-    a.add_argument("--fps", type=int, default=12)
+    a.add_argument("--fps", type=int, default=12,
+                   help="frames per second (default 12); lower it (e.g. 3-6) for "
+                        "a short sweep so you can watch the structure snap in")
     a.add_argument("--format", choices=["gif", "mp4"], default="gif")
     a.add_argument("--max-size", dest="max_size", type=int, default=512,
                    help="cap each frame's largest dimension (0 = no cap)")
