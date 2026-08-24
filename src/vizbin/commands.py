@@ -82,9 +82,18 @@ def _term_dims() -> tuple[int, int]:
     return max(1, cols), max(2, (rows - 1) * 2)
 
 
+def _write_image(path: str, raster: Raster) -> None:
+    """Write a raster as SVG (path ends .svg) or BMP (anything else)."""
+    if path.lower().endswith(".svg"):
+        with open(path, "w") as fh:
+            fh.write(to_svg(raster))
+    else:
+        bmp.write_rgb_bmp(path, bytes(raster.rgb), raster.width, raster.height)
+
+
 def _emit_render(args, data: bytes, raster: Raster, label: str,
                  default_name: str, want_hint: bool = True) -> int:
-    """Output a rendered raster: to the terminal (--term) or a BMP file."""
+    """Output a rendered raster: to the terminal (--term) or an image file."""
     if getattr(args, "term", False):
         shown = raster.fit(*_term_dims())
         sys.stdout.write(to_ansi_halfblocks(shown))
@@ -93,16 +102,9 @@ def _emit_render(args, data: bytes, raster: Raster, label: str,
     else:
         out = _resolve_output(args, default_name)
         # SVG when --format svg or the output path ends in .svg; BMP otherwise.
-        fmt = getattr(args, "format", None)
-        if fmt is None:
-            fmt = "svg" if out.lower().endswith(".svg") else "bmp"
-        if fmt == "svg":
-            if not out.lower().endswith(".svg"):
-                out = out.rsplit(".", 1)[0] + ".svg"
-            with open(out, "w") as fh:
-                fh.write(to_svg(raster))
-        else:
-            bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+        if getattr(args, "format", None) == "svg" and not out.lower().endswith(".svg"):
+            out = out.rsplit(".", 1)[0] + ".svg"
+        _write_image(out, raster)
         print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
               f"[{label}] -> {out}")
     if want_hint and not getattr(args, "no_hints", False):
@@ -268,7 +270,7 @@ def cmd_contact(args) -> int:
     sheet = contact_sheet(tiles, style)
     default = out_name(args.input, kind="contact", mode=base_mode, suffix=vary)
     out = _resolve_output(args, default)
-    bmp.write_rgb_bmp(out, bytes(sheet.rgb), sheet.width, sheet.height)
+    _write_image(out, sheet)  # BMP, or SVG if -o ends .svg
     print(f"{args.input}: contact sheet {len(tiles)} tiles "
           f"({sheet.width}x{sheet.height}) -> {out}")
     return 0
@@ -751,7 +753,7 @@ def cmd_diff(args) -> int:
             print(f"  diff image -> terminal ({shown.width}x{shown.height})")
         else:
             out = args.output
-            bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+            _write_image(out, raster)  # BMP, or SVG if -o ends .svg
             print(f"  diff image -> {raster.width}x{raster.height} -> {out}")
     return 0
 

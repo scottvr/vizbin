@@ -6,14 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-24
+
 ### Added
-- **`render --format svg`** (or naming the output `-o *.svg`) — emit a render as
-  a crisp, scalable SVG of run-length-encoded colour rectangles instead of a BMP.
-  Vector + `shape-rendering="crispEdges"` means razor-sharp pixels at any zoom
-  (no upscaling blur), and it renders natively in browsers / Markdown. Sized by
-  colour transitions rather than pixel count: compact for structured renders,
-  larger for high-entropy noise (keep BMP for those). Works across every render
-  path (`-m`, `-t`/`--pipe`, `--rgb`). New `canvas.to_svg`.
+- **SVG image output** — name an output `-o *.svg` (or pass `render --format svg`)
+  to emit a crisp, scalable SVG of run-length-encoded colour rectangles instead of
+  a BMP. Vector + `shape-rendering="crispEdges"` means razor-sharp pixels at any
+  zoom (no upscaling blur), and it renders natively in browsers / Markdown. Sized
+  by colour transitions rather than pixel count: compact for structured renders,
+  larger for high-entropy noise (keep BMP for those). Supported by `render` (all
+  paths: `-m`, `-t`/`--pipe`, `--rgb`), `contact`, and `diff`. New `canvas.to_svg`.
+
+### Docs
+- Regenerated the gallery images crisp — rendered to SVG, then rasterized to small
+  PNGs (via the new SVG output), so they're sharp instead of upscale-blurry.
 
 ## [0.5.2] - 2026-08-24
 
@@ -169,7 +175,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `raw-rgb`, `byteclass`, `entropy`, `delta`, `xor`, `bitplane`, `nibble`.
   Pure-stdlib BMP writer and animated-GIF encoder.
 
-[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/scottvr/vizbin/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/scottvr/vizbin/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/scottvr/vizbin/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/scottvr/vizbin/compare/v0.4.0...v0.5.0

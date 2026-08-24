@@ -72,3 +72,24 @@ def test_cli_default_is_still_bmp(tmp_path):
     assert main(["render", str(p), "-m", "gray", "-w", "32", "-o", str(out),
                  "--no-hints"]) == 0
     assert out.exists() and out.read_bytes()[:2] == b"BM"   # BMP magic
+
+
+def test_contact_svg_by_extension(tmp_path):
+    p = tmp_path / "in.bin"
+    p.write_bytes(bytes(range(256)) * 8)
+    out = tmp_path / "c.svg"
+    assert main(["contact", str(p), "--modes", "gray,byteclass", "-w", "32",
+                 "-o", str(out)]) == 0
+    assert out.exists() and out.read_text().startswith("<svg")
+    minidom.parse(str(out))
+
+
+def test_diff_svg_by_extension(tmp_path):
+    a = tmp_path / "a.bin"
+    a.write_bytes(bytes(range(256)) * 4)
+    b = tmp_path / "b.bin"
+    b.write_bytes(bytes(range(256)) * 4 + b"tail")
+    out = tmp_path / "d.svg"
+    assert main(["diff", str(a), str(b), "-o", str(out), "-w", "32"]) == 0
+    assert out.exists() and out.read_text().startswith("<svg")
+    minidom.parse(str(out))
