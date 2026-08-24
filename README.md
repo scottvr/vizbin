@@ -90,6 +90,15 @@ Window a region without extracting it first (great for reversing):
 vizbin render mystery.bin --offset 0x12000 --length 65536 -w 256
 ```
 
+Don't know the offset? **Find it.** `--find` (or `--find-hex`) locates a pattern
+and centres the render window on it — so you can jump straight to an interesting
+string without hunting for its address:
+
+```sh
+vizbin render firmware.bin -m text --find "https://" --length 4096
+vizbin render firmware.bin --find-hex deadbeef -w 256
+```
+
 #### Composing: two axes
 
 A projection is a **transform** (`-t`/`--transform`: *what to measure* — bytes→bytes)
