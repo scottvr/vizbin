@@ -132,7 +132,42 @@ def _render_channels(args, data: bytes, opts: dict, spec: str) -> int:
     return _emit_render(args, data, raster, "rgb " + "/".join(names), default)
 
 
+def _apply_find(args) -> int:
+    """Resolve --find / --find-hex into args.offset/args.length: locate the
+    pattern and centre a window (of --length bytes, default 8192) on it.
+    Returns 0, or 1 (and prints to stderr) if the pattern isn't found."""
+    pat = None
+    if getattr(args, "find", None) is not None:
+        pat = args.find.encode("utf-8", "surrogateescape")
+        shown = repr(args.find)
+    elif getattr(args, "find_hex", None) is not None:
+        try:
+            pat = bytes.fromhex(args.find_hex.replace(" ", ""))
+        except ValueError:
+            print(f"--find-hex: not valid hex: {args.find_hex!r}", file=sys.stderr)
+            return 1
+        shown = f"hex {args.find_hex}"
+    if pat is None:
+        return 0
+    with open(args.input, "rb") as fh:
+        blob = fh.read()
+    idx = blob.find(pat, args.offset or 0)
+    if idx < 0:
+        print(f"{args.input}: pattern not found ({shown})", file=sys.stderr)
+        return 1
+    window = args.length or 8192
+    start = max(0, idx + len(pat) // 2 - window // 2)
+    start = min(start, max(0, len(blob) - window))
+    args.offset = start
+    args.length = window
+    print(f"{args.input}: found {shown} at 0x{idx:x} ({idx}); "
+          f"window [0x{start:x}, +{window}]")
+    return 0
+
+
 def cmd_render(args) -> int:
+    if _apply_find(args):
+        return 1
     data = load_region(args.input, args.offset, args.length)
     opts = _mode_opts(args)
     paint = getattr(args, "paint", None)

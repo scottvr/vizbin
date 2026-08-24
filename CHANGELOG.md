@@ -7,6 +7,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`render --find` / `--find-hex`** — locate a byte pattern (string or hex) and
+  centre the render window on it, so you can jump to an interesting section
+  without knowing its offset (window size = `--length`, default 8192).
 - **`diff`** — structural/visual diff of two binaries. Block-level matching (via
   `difflib`) survives insertions/deletions — a mid-file insertion doesn't smear
   the whole tail as "changed" the way `cmp` would. Reports `replace`/`insert`/
