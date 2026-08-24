@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`profile`** — structural fingerprint of a blob: overall entropy, byte-class
+  mix, `head` magic bytes, a coarse entropy-band **region** map (which surfaces
+  *heterogeneous* blobs), a fixed-length `entropy_profile` vector, and an optional
+  detected record stride. Reads one or more files; `--json` emits JSONL (one
+  object per file) as a ready-made feature vector for clustering / triage /
+  anomaly-detection across a whole corpus in the terminal.
 - **`render --term`** — render directly into the terminal with 24-bit ANSI colour
   and Unicode half-block glyphs (two pixels per character cell), instead of
   writing a file. Works with every mode plus `-t`/`--pipe`/`--rgb`; auto-fits the

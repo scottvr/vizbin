@@ -683,6 +683,33 @@ def cmd_inspect(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# profile (structural fingerprint)
+# ---------------------------------------------------------------------------
+
+def cmd_profile(args) -> int:
+    from vizbin import profile as prof
+    paths = args.input if isinstance(args.input, list) else [args.input]
+    rc = 0
+    first = True
+    for path in paths:
+        try:
+            data = load_region(path, args.offset, args.length)
+        except OSError as e:
+            print(f"{path}: {e}", file=sys.stderr)
+            rc = 1
+            continue
+        p = prof.build_profile(data, path, detect_stride=not args.no_stride)
+        if args.json:
+            print(prof.to_json(p))       # JSONL: one object per line, per file
+        else:
+            if not first:
+                print()
+            print(prof.format_report(p))
+        first = False
+    return rc
+
+
+# ---------------------------------------------------------------------------
 # infer (draft record/field layout)
 # ---------------------------------------------------------------------------
 

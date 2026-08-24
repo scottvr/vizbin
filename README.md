@@ -52,6 +52,7 @@ vizbin
 |-- suggest    candidate widths, ranked by row coherence
 |-- inspect    map between byte offsets and pixel coordinates
 |-- infer      draft a record/field layout from repeating structure
+|-- profile    structural fingerprint (entropy, byte classes, regions)
 |-- bmp        reversible "payload as pixels" BMP
 `-- unbmp      recover the payload from a bmp
 ```
@@ -319,6 +320,46 @@ fields = ['magic', 'count', 'text', 'data']
 The `struct` format always accounts for every byte (`struct.calcsize(format) ==
 stride`), so it round-trips; `kaitai` gives per-field endianness and fixed-magic
 `contents`.
+
+### profile (structural fingerprint)
+
+`profile` distills a file into a compact fingerprint — overall entropy, byte-class
+mix, a coarse **region** map (adjacent windows merged by entropy class), the
+`head` magic bytes, and a detected record stride. It reads **one or more** files,
+so you can fingerprint a whole corpus at once:
+
+```sh
+vizbin profile firmware.bin                     # human summary
+vizbin profile *.bin --json --no-stride         # JSONL, one object per file
+```
+
+The region map turns vizbin into a *sensor*, not just a lens — it makes
+**heterogeneous** blobs (a file with several differently-structured parts) fall
+right out:
+
+```
+mystery.bin:  13120 bytes
+  entropy 5.86 bits/byte   printable 54%   distinct 256/256   head 6465662068656c6c
+  byte-classes: nul 23%  whitespace 5%  ascii 49%  control 4%  high 19%
+  regions (6):
+    0x00000000      2048  text       entropy 3.85
+    0x00000800      2048  sparse     entropy 0.00
+    0x00001000      1024  binary     entropy 2.07
+    0x00001400      4096  compressed entropy 7.81
+    0x00002400      1024  code       entropy 6.74
+    0x00002800      2880  text       entropy 2.00
+```
+
+`--json` emits one object per line (JSONL) with a fixed-length `entropy_profile`
+vector plus the `byte_classes` fractions — a ready-made feature vector for
+clustering / triage / anomaly-detection across thousands of files in the
+terminal, something interactive visualizers can't do:
+
+```sh
+# which files stand out? cluster by their region composition
+vizbin profile corpus/*.bin --json | \
+  jq -r '[(.regions|map(.kind)|unique|join("+")), .source] | @tsv'
+```
 
 ### bmp / unbmp (reversible payload mode)
 
