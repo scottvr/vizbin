@@ -90,6 +90,18 @@ Window a region without extracting it first (great for reversing):
 vizbin render mystery.bin --offset 0x12000 --length 65536 -w 256
 ```
 
+Output **SVG** for a crisp, scalable image (`--format svg`, or just name the
+output `.svg`) — vector rectangles that stay razor-sharp at any zoom, no
+upscaling blur, and render natively in a browser or a Markdown page:
+
+```sh
+vizbin render firmware.bin -m byteclass -o fw.svg
+```
+
+SVG is sized by colour transitions, not pixels, so it's compact and sharp for
+*structured* renders (region maps, byte classes) — but a wall of high-entropy
+noise turns into one rect per pixel, so keep BMP (the default) for those.
+
 Don't know the offset? **Find it.** `--find` (or `--find-hex`) locates a pattern
 and windows the render around it (the match sits at the centre of the byte
 window) — so you can jump straight to an interesting string without hunting for

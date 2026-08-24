@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **`render --format svg`** (or naming the output `-o *.svg`) — emit a render as
+  a crisp, scalable SVG of run-length-encoded colour rectangles instead of a BMP.
+  Vector + `shape-rendering="crispEdges"` means razor-sharp pixels at any zoom
+  (no upscaling blur), and it renders natively in browsers / Markdown. Sized by
+  colour transitions rather than pixel count: compact for structured renders,
+  larger for high-entropy noise (keep BMP for those). Works across every render
+  path (`-m`, `-t`/`--pipe`, `--rgb`). New `canvas.to_svg`.
+
 ## [0.5.2] - 2026-08-24
 
 ### Fixed

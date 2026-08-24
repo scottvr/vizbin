@@ -96,6 +96,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--term", action="store_true",
                    help="render into the terminal (24-bit ANSI half-blocks) "
                         "instead of writing a file")
+    r.add_argument("--format", choices=["bmp", "svg"], default=None,
+                   help="output image format (default: bmp, or svg if -o ends .svg). "
+                        "SVG is crisp/scalable — best for structured renders.")
     r.add_argument("--find", default=None,
                    help="locate a string and window the render around it "
                         "(centre; window size = --length, default 8192)")

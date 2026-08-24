@@ -123,6 +123,41 @@ def to_ansi_halfblocks(raster: "Raster") -> str:
     return "\n".join(lines) + "\n"
 
 
+def to_svg(raster: "Raster", scale: int = 1) -> str:
+    """Render a raster as an SVG of colour-run rectangles.
+
+    Each row is run-length-encoded into ``<rect>`` elements, so the file scales
+    with the number of colour transitions, not the pixel count -- compact for
+    structured images, larger for high-entropy noise. ``viewBox`` plus
+    ``shape-rendering="crispEdges"`` keep pixels razor-sharp at any zoom (no
+    upscaling blur), and ``scale`` sets the nominal pixel size.
+    """
+    w, h, rgb = raster.width, raster.height, raster.rgb
+    px = max(1, scale)
+    out = [
+        '<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{w * px}" height="{h * px}" viewBox="0 0 {w} {h}" '
+        'shape-rendering="crispEdges">'
+    ]
+    for y in range(h):
+        x = 0
+        base = y * w * 3
+        while x < w:
+            i = base + x * 3
+            r, g, b = rgb[i], rgb[i + 1], rgb[i + 2]
+            run = 1
+            while x + run < w:
+                j = base + (x + run) * 3
+                if rgb[j] != r or rgb[j + 1] != g or rgb[j + 2] != b:
+                    break
+                run += 1
+            out.append(f'<rect x="{x}" y="{y}" width="{run}" height="1" '
+                       f'fill="#{r:02x}{g:02x}{b:02x}"/>')
+            x += run
+    out.append("</svg>")
+    return "\n".join(out) + "\n"
+
+
 # ---------------------------------------------------------------------------
 # Colormaps
 # ---------------------------------------------------------------------------

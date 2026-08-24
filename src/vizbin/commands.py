@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from vizbin import bmp, gif, layout, projections
-from vizbin.canvas import ContactStyle, Raster, contact_sheet, to_ansi_halfblocks
+from vizbin.canvas import ContactStyle, Raster, contact_sheet, to_ansi_halfblocks, to_svg
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +92,17 @@ def _emit_render(args, data: bytes, raster: Raster, label: str,
               f"[{label}] -> terminal ({shown.width}x{shown.height})")
     else:
         out = _resolve_output(args, default_name)
-        bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
+        # SVG when --format svg or the output path ends in .svg; BMP otherwise.
+        fmt = getattr(args, "format", None)
+        if fmt is None:
+            fmt = "svg" if out.lower().endswith(".svg") else "bmp"
+        if fmt == "svg":
+            if not out.lower().endswith(".svg"):
+                out = out.rsplit(".", 1)[0] + ".svg"
+            with open(out, "w") as fh:
+                fh.write(to_svg(raster))
+        else:
+            bmp.write_rgb_bmp(out, bytes(raster.rgb), raster.width, raster.height)
         print(f"{args.input}: {len(data)} bytes -> {raster.width}x{raster.height} "
               f"[{label}] -> {out}")
     if want_hint and not getattr(args, "no_hints", False):
