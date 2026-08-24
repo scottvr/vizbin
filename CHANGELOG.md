@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-23
+
 ### Added
 - **`render --find` / `--find-hex`** — locate a byte pattern (string or hex) and
   centre the render window on it, so you can jump to an interesting section
@@ -142,7 +144,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `raw-rgb`, `byteclass`, `entropy`, `delta`, `xor`, `bitplane`, `nibble`.
   Pure-stdlib BMP writer and animated-GIF encoder.
 
-[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/scottvr/vizbin/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/scottvr/vizbin/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/scottvr/vizbin/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/scottvr/vizbin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/scottvr/vizbin/releases/tag/v0.2.0
