@@ -18,7 +18,7 @@ Two ideas drive it:
 
 Vary both and let human vision do the first pass of reconnaissance.
 
-**See it in action:** the [gallery](docs/GALLERY.md) shows real renders — the
+**See it in action:** the [gallery](https://github.com/scottvr/vizbin/blob/main/docs/GALLERY.md) shows real renders — the
 projections, channel composition, contact sheets, text mode, and the binary diff.
 
 It grew out of a shell one-liner that `cat`'d a file's bytes into a hand-built
@@ -71,7 +71,7 @@ vizbin render foo.bin -w 128 -m byteclass
 vizbin render foo.bin -w 128 -m entropy --window 512
 ```
 
-New to it? Start with the [exploration guide](docs/QUICKSTART-TUTORIAL.md) — a
+New to it? Start with the [exploration guide](https://github.com/scottvr/vizbin/blob/main/docs/QUICKSTART-TUTORIAL.md) — a
 guided tour of small experiments that show what vizbin can see, and how changing
 one assumption changes the picture.
 
