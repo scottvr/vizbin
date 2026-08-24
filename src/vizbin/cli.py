@@ -96,6 +96,11 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--term", action="store_true",
                    help="render into the terminal (24-bit ANSI half-blocks) "
                         "instead of writing a file")
+    r.add_argument("--find", default=None,
+                   help="locate a string and window the render around it "
+                        "(centre; window size = --length, default 8192)")
+    r.add_argument("--find-hex", dest="find_hex", default=None,
+                   help="like --find but the pattern is hex bytes (e.g. deadbeef)")
     _add_mode_opts(r)
     _add_region(r)
     r.set_defaults(func=commands.cmd_render)
