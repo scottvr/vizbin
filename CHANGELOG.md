@@ -21,7 +21,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Regenerated the gallery images crisp — rendered to SVG, then rasterized to small
   PNGs (via the new SVG output), so they're sharp instead of upscale-blurry.
 - Refreshed `scripts/demo.sh` to tour every feature (SVG output, a colourful
-  `--term` showcase, `diff --term`) — a good script to record as a terminal demo.
+  `--term` showcase, `diff --term`) with spacebar pauses between steps for pacing
+  a screen recording (`NOPAUSE=1` to skip; auto-skipped when not a terminal).
 
 ## [0.5.2] - 2026-08-24
 

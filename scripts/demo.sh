@@ -2,7 +2,8 @@
 # A guided tour of vizbin over the bundled sample data.
 # Images/gifs land in examples/output/ (gitignored); text output prints here.
 #
-#   bash scripts/demo.sh
+#   bash scripts/demo.sh          # pauses between steps (great for screen-recording)
+#   NOPAUSE=1 bash scripts/demo.sh  # run straight through, no pauses
 #
 # Override the binary or python with VIZBIN=... PYTHON=... if needed.
 set -euo pipefail
@@ -14,9 +15,25 @@ OUT=examples/output
 SD=examples/sample-data
 mkdir -p "$OUT"
 
+# Pause between steps so a screen recording can breathe. Skipped automatically
+# when stdin isn't a terminal (piped/redirected/CI) or when NOPAUSE is set.
+pause() {
+  if [ -t 0 ] && [ -z "${NOPAUSE:-}" ]; then
+    printf '\n  \033[2m-- press space to continue --\033[0m'
+    read -rsn1 _ 2>/dev/null || true
+    printf '\r\033[K'   # erase the prompt line
+  fi
+}
+
 "$PY" examples/make_sample_data.py
 
-section() { echo; echo "== $* =="; }
+_first=1
+section() {
+  [ -n "${_first:-}" ] || pause   # pause before each section except the first
+  _first=
+  echo
+  echo "== $* =="
+}
 
 # --- structure discovery ---------------------------------------------------
 
