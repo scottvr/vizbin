@@ -79,7 +79,7 @@ each row accumulates a different amount of slop. Uniform rows align; busy rows w
 
 ## Would we ship this?
 
-No. vizbin's [real gallery](GALLERY.md) uses crisp PNGs, which are sharper and don't
+No. vizbin's [real gallery](GALLERY.md) uses SVG and PNGs (and vizbin can of course write RLE bitmaps), which are sharper and don't
 depend on a Markdown renderer's mood. This page exists because it *works*, because it
 is *ridiculous*, and because a tool with imaging in its DNA deserves at least one
 picture drawn by the part of the stack that swore it only did equations.
